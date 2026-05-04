@@ -11,9 +11,13 @@ function pgConnectionString() {
   const raw = process.env.DATABASE_URL;
   if (!raw) return raw;
 
-  const url = new URL(raw);
-  url.searchParams.delete("sslmode");
-  return url.toString();
+  try {
+    const url = new URL(raw);
+    url.searchParams.delete("sslmode");
+    return url.toString();
+  } catch {
+    return raw;
+  }
 }
 
 const pool =

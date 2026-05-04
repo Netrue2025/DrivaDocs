@@ -4,6 +4,9 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const contentSchema = z.object({
   action: z.enum(["create", "update", "delete"]),
   type: z.enum(["testimonial", "faq"]),
