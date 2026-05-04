@@ -1050,7 +1050,12 @@ async function readApiError(response: Response, fallback: string) {
     const payload = await response.json();
     if (payload?.error) return String(payload.error);
   } catch {
-    return fallback;
+    try {
+      const text = await response.text();
+      if (text) return `${fallback} Server returned ${response.status}.`;
+    } catch {
+      return `${fallback} Server returned ${response.status}.`;
+    }
   }
-  return fallback;
+  return `${fallback} Server returned ${response.status}.`;
 }
