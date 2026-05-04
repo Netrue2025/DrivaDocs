@@ -80,6 +80,7 @@ export function ServiceRequestForm({
   const [exitPrompt, setExitPrompt] = useState<{ href: string } | null>(null);
   const [success, setSuccess] = useState<{ message: string; requestId: string; amount: number } | null>(null);
   const [status, setStatus] = useState("");
+  const [reviewError, setReviewError] = useState("");
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [hydrated, setHydrated] = useState(false);
   const allowExitRef = useRef(false);
@@ -315,7 +316,7 @@ export function ServiceRequestForm({
       const formData = new FormData();
       formData.append("file", file);
       const response = await fetch("/api/uploads", { method: "POST", body: formData });
-      if (!response.ok) throw new Error("File upload validation failed");
+      if (!response.ok) throw new Error(await readApiError(response, "File upload failed. Please check the file and try again."));
       const body = await response.json();
       uploaded.push({
         name: file.name,
@@ -336,6 +337,7 @@ export function ServiceRequestForm({
     if (!serviceType || !deliveryComplete(values) || !requirementsComplete(requirements, values, files, fileMeta)) return;
 
     setBusyAction(mode);
+    setReviewError("");
     setStatus(mode === "PAY_LATER" ? "Submitting request..." : "Preparing payment...");
     try {
       const documents = await uploadDocuments();
@@ -367,7 +369,7 @@ export function ServiceRequestForm({
         })
       });
 
-      if (!response.ok) throw new Error("Unable to create request");
+      if (!response.ok) throw new Error(await readApiError(response, "Unable to create request."));
       const created = await response.json();
       window.localStorage.removeItem(cacheKey);
       setRequestId(created.id);
@@ -395,9 +397,11 @@ export function ServiceRequestForm({
       addHidden(paymentForm, "paymentType", paymentChoice);
       document.body.appendChild(paymentForm);
       paymentForm.submit();
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to complete request. Please review the form and try again.";
       setBusyAction(null);
-      setStatus("Unable to complete request. Please review the form and try again.");
+      setReviewError(message);
+      setStatus(message);
     }
   }
 
@@ -584,6 +588,7 @@ export function ServiceRequestForm({
           onSave={() => createRequest("PAY_LATER")}
           onPay={() => createRequest("PAY")}
           busyAction={busyAction}
+          errorMessage={reviewError}
         />
       ) : null}
 
@@ -802,7 +807,8 @@ function ReviewModal({
   onClose,
   onSave,
   onPay,
-  busyAction
+  busyAction,
+  errorMessage
 }: {
   serviceName: string;
   deliveryPeriod: string;
@@ -822,6 +828,7 @@ function ReviewModal({
   onSave: () => void;
   onPay: () => void;
   busyAction: BusyAction;
+  errorMessage: string;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const isBusy = Boolean(busyAction);
@@ -887,6 +894,11 @@ function ReviewModal({
           </label>
         </fieldset>
         <p className="mt-4 break-words text-xl font-black text-brand-800">Amount to pay now: {formatNaira(amountToPay)}</p>
+        {errorMessage ? (
+          <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm font-bold leading-6 text-red-800">
+            {errorMessage}
+          </div>
+        ) : null}
         <div className="mt-6 grid gap-3 lg:grid-cols-3">
           <button type="button" onClick={onClose} disabled={isBusy} className="min-h-11 rounded border border-brand-900/15 px-5 font-black disabled:opacity-60">
             Close
@@ -1031,4 +1043,14 @@ function addHidden(form: HTMLFormElement, name: string, value: string) {
   input.name = name;
   input.value = value;
   form.appendChild(input);
+}
+
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const payload = await response.json();
+    if (payload?.error) return String(payload.error);
+  } catch {
+    return fallback;
+  }
+  return fallback;
 }

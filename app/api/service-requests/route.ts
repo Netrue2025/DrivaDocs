@@ -41,11 +41,18 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  try {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const parsed = requestSchema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "Invalid service request" }, { status: 400 });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return NextResponse.json(
+      { error: firstIssue?.message || "Invalid service request. Please check the required fields." },
+      { status: 400 }
+    );
+  }
 
   const data = parsed.data;
   const requestData = {
@@ -157,6 +164,13 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    console.error("Service request failed", error);
+    return NextResponse.json(
+      { error: "Unable to save this service request. Please try again or contact support if it continues." },
+      { status: 500 }
+    );
+  }
 }
 
 async function ensureServiceReminder(serviceRequestId: string, userId: string, title: string) {
