@@ -4,6 +4,9 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const replySchema = z.object({
   adminReply: z.string().optional().or(z.literal("")),
   status: z.enum(["OPEN", "PENDING", "RESOLVED", "CLOSED"])

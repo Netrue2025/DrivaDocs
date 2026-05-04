@@ -6,6 +6,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requestCode } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const requestSchema = z.object({
   requestId: z.string().optional(),
   serviceType: z.string(),

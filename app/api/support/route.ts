@@ -6,6 +6,9 @@ import { forwardContactMessage } from "@/lib/contact-email";
 import { prisma } from "@/lib/prisma";
 import { requestCode } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const ticketSchema = z.object({
   name: z.string().min(2),
   email: z.string().email().optional().or(z.literal("")),

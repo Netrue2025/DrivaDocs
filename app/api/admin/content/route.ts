@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +21,11 @@ const contentSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const [{ getServerSession }, { authOptions }, { prisma }] = await Promise.all([
+    import("next-auth"),
+    import("@/lib/auth"),
+    import("@/lib/prisma")
+  ]);
   const session = await getServerSession(authOptions);
   if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

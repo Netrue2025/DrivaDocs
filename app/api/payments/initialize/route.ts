@@ -5,6 +5,9 @@ import { initializePaystackPayment } from "@/lib/paystack";
 import { prisma } from "@/lib/prisma";
 import { requestCode } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

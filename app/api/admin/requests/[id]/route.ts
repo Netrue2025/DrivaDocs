@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/upload-storage";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const allowedStatuses = new Set<RequestStatus>([
   "PROCESSING",
