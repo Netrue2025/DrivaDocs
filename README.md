@@ -1,4 +1,8 @@
 # DrivaDocs
+Email: admin@drivadocs.ng
+Password: AdminPass123!
+
+
 
 Renew vehicle papers, register new vehicles, process licenses, manage permits, and receive completed documents without losing productive hours.
 
