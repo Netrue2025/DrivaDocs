@@ -1,0 +1,444 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  USER
+  BUSINESS
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  AWAITING_PAYMENT
+  PAYMENT_CONFIRMED
+  PROCESSING
+  DOCUMENT_READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  INITIALIZED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  FULL
+  UPFRONT_75
+  BALANCE_25
+}
+
+enum DocumentKind {
+  VEHICLE_LICENSE
+  ROAD_WORTHINESS
+  INSURANCE_POLICY
+  CUSTOM_PAPER
+  CHASSIS_PHOTO
+  SALES_RECEIPT
+  NIN
+  PASSPORT_PHOTOGRAPH
+  BIRTH_CERTIFICATE
+  DECLARATION_OF_AGE
+  PROOF_OF_ADDRESS
+  RENEWED_DOCUMENT
+  OTHER
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum SupportTicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum PricingServiceType {
+  VEHICLE_PAPER_RENEWAL
+  NEW_VEHICLE_REGISTRATION
+  CHANGE_OF_OWNERSHIP
+  OTHER_PERMIT
+  FADED_NUMBER_PLATE_REPRINT
+  NEW_DRIVERS_LICENSE
+  DRIVERS_LICENSE_RENEWAL
+  INTERNATIONAL_DRIVERS_LICENSE
+  NEW_MOTORCYCLE_RIDERS_LICENSE
+  MOTORCYCLE_RIDERS_LICENSE_RENEWAL
+  DELIVERY
+}
+
+model User {
+  id              String            @id @default(cuid())
+  name            String?
+  email           String            @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  phone           String?
+  accountType     AccountType       @default(INDIVIDUAL)
+  role            UserRole          @default(USER)
+  isActive        Boolean           @default(true)
+  businessAccount BusinessAccount?
+  vehicles        Vehicle[]
+  drivers         Driver[]
+  requests        ServiceRequest[]
+  documents       UploadedDocument[]
+  payments        Payment[]
+  delivery        DeliveryAddress[]
+  notifications   Notification[]
+  supportTickets  SupportTicket[]
+  supportMessages  SupportMessage[]
+  adminProfile    AdminUser?
+  accounts        Account[]
+  sessions        Session[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model BusinessAccount {
+  id                  String           @id @default(cuid())
+  userId              String           @unique
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName         String
+  contactPerson       String
+  registrationNumber  String?
+  taxId               String?
+  officeAddress       String
+  fleetSize           Int              @default(0)
+  vehicles            Vehicle[]
+  drivers             Driver[]
+  requests            ServiceRequest[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model Vehicle {
+  id                String            @id @default(cuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessAccountId String?
+  businessAccount   BusinessAccount?  @relation(fields: [businessAccountId], references: [id], onDelete: SetNull)
+  registrationNo    String?
+  chassisNo         String?
+  engineNo          String?
+  make              String
+  model             String
+  color             String?
+  vehicleType       String
+  engineCategory    String?
+  usage             String            @default("PRIVATE")
+  licenseExpiry     DateTime?
+  roadWorthinessExpiry DateTime?
+  insuranceExpiry   DateTime?
+  serviceRequests   ServiceRequest[]
+  documents         UploadedDocument[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model Driver {
+  id                String            @id @default(cuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessAccountId String?
+  businessAccount   BusinessAccount?  @relation(fields: [businessAccountId], references: [id], onDelete: SetNull)
+  surname           String
+  firstName         String
+  lastName          String?
+  dateOfBirth       DateTime?
+  mothersMaidenName String?
+  nextOfKinPhone    String?
+  facialMark        String?
+  disability        String?
+  phone             String?
+  stateOfOrigin     String?
+  localGovernment   String?
+  address           String?
+  nin               String?
+  licenseNo         String?
+  licenseExpiry     DateTime?
+  riderLicenseNo    String?
+  riderLicenseExpiry DateTime?
+  requests          ServiceRequest[]
+  documents         UploadedDocument[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model ServiceRequest {
+  id                String             @id @default(cuid())
+  requestCode       String             @unique
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessAccountId String?
+  businessAccount   BusinessAccount?   @relation(fields: [businessAccountId], references: [id], onDelete: SetNull)
+  vehicleId         String?
+  vehicle           Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driverId          String?
+  driver            Driver?            @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  serviceType       PricingServiceType
+  status            RequestStatus      @default(DRAFT)
+  title             String
+  state             String?
+  location          String?
+  requirements      Json?
+  estimateSubtotal  Int                @default(0)
+  deliveryFee       Int                @default(0)
+  totalAmount       Int                @default(0)
+  upfrontAmount     Int                @default(0)
+  balanceAmount     Int                @default(0)
+  assignedAdminId   String?
+  assignedAdmin     AdminUser?         @relation(fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  documents         UploadedDocument[]
+  payments          Payment[]
+  deliveryAddress   DeliveryAddress?
+  notifications     Notification[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model UploadedDocument {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId        String?
+  vehicle          Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driverId         String?
+  driver           Driver?         @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  serviceRequestId String?
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  kind             DocumentKind
+  fileName         String
+  mimeType         String
+  fileSize         Int
+  storageKey       String
+  publicUrl        String?
+  verifiedAt       DateTime?
+  createdAt        DateTime        @default(now())
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRequestId  String
+  serviceRequest    ServiceRequest  @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  amount            Int
+  currency          String          @default("NGN")
+  type              PaymentType
+  status            PaymentStatus   @default(PENDING)
+  provider          String          @default("PAYSTACK")
+  providerReference String?         @unique
+  authorizationUrl  String?
+  paidAt            DateTime?
+  receiptNo         String?
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model DeliveryAddress {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRequestId  String?         @unique
+  serviceRequest    ServiceRequest? @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  label             String?
+  recipientName     String
+  phone             String
+  addressLine       String
+  city              String
+  state             String
+  landmark          String?
+  deliveryMethod    String          @default("HOME_OFFICE")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model Notification {
+  id               String              @id @default(cuid())
+  userId           String?
+  user             User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceRequestId String?
+  serviceRequest   ServiceRequest?     @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  channel          NotificationChannel
+  status           NotificationStatus  @default(QUEUED)
+  subject          String
+  message          String
+  scheduledFor     DateTime?
+  sentAt           DateTime?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+}
+
+model AdminUser {
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffCode        String?          @unique
+  role             UserRole         @default(ADMIN)
+  permissions      Json?
+  assignedRequests ServiceRequest[]
+  auditLogs        AuditLog[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model ServicePricing {
+  id             String             @id @default(cuid())
+  serviceType    PricingServiceType
+  serviceName    String
+  vehicleType    String?
+  engineCategory String?
+  usage          String?
+  state          String?
+  location       String?
+  amount         Int
+  currency       String             @default("NGN")
+  active         Boolean            @default(true)
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([serviceType, vehicleType, engineCategory, usage, state, location])
+}
+
+model DeliveryLocation {
+  id          String   @id @default(cuid())
+  state       String
+  location    String
+  method      String   @default("HOME_OFFICE")
+  fee         Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  role        String?
+  company     String?
+  quote       String
+  rating      Int      @default(5)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model FaqItem {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String?
+  published   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+}
+
+model SupportTicket {
+  id          String              @id @default(cuid())
+  ticketNo    String              @unique
+  userId      String?
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name        String
+  email       String
+  phone       String?
+  subject     String
+  message     String
+  status      SupportTicketStatus @default(OPEN)
+  adminReply  String?
+  messages    SupportMessage[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model SupportMessage {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUserId String?
+  senderUser  User?         @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderRole  String
+  message     String
+  readByUser  Boolean       @default(false)
+  readByAdmin Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  adminUserId String?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
