@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Bell, Car, CreditCard, FileCheck2, MessageCircle, UserRound } from "lucide-react";
+import { Bell, CreditCard, FileCheck2, MessageCircle } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { ReminderControls } from "@/components/reminder-controls";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,7 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const [vehicles, drivers, requests, payments, notifications] = await Promise.all([
-    prisma.vehicle.count({ where: { userId: session.user.id } }).catch(() => 0),
-    prisma.driver.count({ where: { userId: session.user.id } }).catch(() => 0),
+  const [requests, payments, notifications] = await Promise.all([
     prisma.serviceRequest.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
@@ -34,10 +32,8 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <DashboardShell title="Overview" description="Track vehicles, drivers, requests, payments, reminders, and support from one place.">
-      <div className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4">
-        <Stat icon={Car} label="Vehicles" value={vehicles} />
-        <Stat icon={UserRound} label="Drivers" value={drivers} />
+    <DashboardShell title="Overview" description="Track requests, payments, reminders, and support from one place.">
+      <div className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0">
         <Stat icon={FileCheck2} label="Open requests" value={requests.length} />
         <Stat icon={CreditCard} label="Paid" value={formatNaira(payments._sum.amount || 0)} />
       </div>
@@ -93,7 +89,7 @@ export default async function DashboardPage() {
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: typeof Car; label: string; value: React.ReactNode }) {
+function Stat({ icon: Icon, label, value }: { icon: typeof FileCheck2; label: string; value: React.ReactNode }) {
   return (
     <div className="w-[calc((100vw-2.25rem)/2)] min-w-[calc((100vw-2.25rem)/2)] snap-start rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:w-auto sm:min-w-0 sm:p-5">
       <Icon className="text-brand-700" />

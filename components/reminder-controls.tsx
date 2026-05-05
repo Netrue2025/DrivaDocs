@@ -33,7 +33,7 @@ export function ReminderControls({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex min-w-0 shrink-0 items-center gap-2">
       <button
         type="button"
         onClick={() => updateReminder(!enabled)}

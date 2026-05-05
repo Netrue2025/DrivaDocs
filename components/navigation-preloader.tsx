@@ -58,15 +58,27 @@ export function NavigationPreloader() {
       scheduleLoader();
     }
 
+    function onSubmit(event: SubmitEvent) {
+      if (event.defaultPrevented) return;
+      const submitter = event.submitter;
+      if (submitter instanceof HTMLButtonElement) {
+        submitter.dataset.clickLoading = "true";
+        submitter.setAttribute("aria-busy", "true");
+      }
+      scheduleLoader(350);
+    }
+
     function onBeforeUnload() {
       clearTimers();
       setVisible(true);
     }
 
     document.addEventListener("click", onClick);
+    document.addEventListener("submit", onSubmit);
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       document.removeEventListener("click", onClick);
+      document.removeEventListener("submit", onSubmit);
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("load", finishInitialLoad);
       clearTimers();

@@ -33,8 +33,8 @@ export default async function RemindersPage() {
 
   return (
     <DashboardShell title="Reminders" description="Create, switch off, or cancel renewal reminders for your existing services.">
-      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <div className="min-w-0">
           <h2 className="mb-3 text-xl font-black">Create manual reminder</h2>
           {services.length ? (
             <ManualReminderForm
@@ -52,26 +52,28 @@ export default async function RemindersPage() {
           )}
         </div>
 
-        <div className="rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
+        <div className="min-w-0 rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
           <h2 className="flex items-center gap-2 text-xl font-black">
             <Bell className="text-brand-700" /> Existing reminders
           </h2>
           <div className="mt-4 grid gap-3">
             {reminders.length ? reminders.map((item) => (
-              <div key={item.id} className="flex items-start justify-between gap-3 rounded border border-brand-900/10 p-3">
-                <div className="min-w-0">
+              <div key={item.id} className="grid min-w-0 gap-3 rounded border border-brand-900/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="min-w-0 overflow-hidden">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-bold">{item.subject}</p>
+                    <p className="min-w-0 break-words font-bold">{item.subject}</p>
                     <Badge tone={item.status === "READ" ? "gray" : "green"}>{item.status === "READ" ? "Off" : "On"}</Badge>
                   </div>
-                  <p className="mt-1 text-sm text-ink/60">{item.message}</p>
+                  <p className="mt-1 break-words text-sm text-ink/60">{item.message}</p>
                   {item.scheduledFor ? (
                     <p className="mt-2 text-xs font-bold uppercase text-brand-700">
                       Reminder date: {new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(item.scheduledFor)}
                     </p>
                   ) : null}
                 </div>
-                <ReminderControls id={item.id} enabled={item.status !== "READ"} />
+                <div className="min-w-0 sm:justify-self-end">
+                  <ReminderControls id={item.id} enabled={item.status !== "READ"} />
+                </div>
               </div>
             )) : (
               <p className="rounded bg-brand-50 p-4 text-sm font-semibold text-ink/65">No reminders yet.</p>

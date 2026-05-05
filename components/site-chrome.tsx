@@ -15,8 +15,7 @@ const navItems = [
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdminPage = pathname.startsWith("/admin");
-  const isDashboardPage = pathname.startsWith("/dashboard");
+  const useCompactFooter = pathname !== "/";
 
   return (
     <AuthSessionProvider>
@@ -26,7 +25,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         </div>
         <main className="min-w-0 flex-1">{children}</main>
         <div className="site-chrome-footer">
-          <Footer compact={isAdminPage || isDashboardPage} />
+          <Footer compact={useCompactFooter} />
         </div>
         <NavigationPreloader />
       </div>

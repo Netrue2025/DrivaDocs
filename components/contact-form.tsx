@@ -2,7 +2,7 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useRef, useState } from "react";
-import { X } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 
 type Status = "idle" | "loading" | "success" | "error";
 type PendingTicket = {
@@ -16,6 +16,7 @@ export function ContactForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [pendingTicket, setPendingTicket] = useState<PendingTicket | null>(null);
   const [authError, setAuthError] = useState("");
   const isLoggedIn = authStatus === "authenticated";
@@ -52,12 +53,14 @@ export function ContactForm() {
     if (response.ok) {
       setStatus("success");
       setMessage("Message sent. We will respond shortly.");
+      setFeedbackOpen(true);
       return true;
     }
 
     const payload = await response.json().catch(() => null);
     setStatus("error");
     setMessage(payload?.error || "Unable to submit ticket. Please check the details and try again.");
+    setFeedbackOpen(true);
     return false;
   }
 
@@ -118,12 +121,19 @@ export function ContactForm() {
             Message
             <textarea name="message" rows={6} required className="rounded border border-brand-900/15 p-3 focus-ring" />
           </label>
-          {message ? <p className={status === "success" ? "text-sm font-bold text-brand-700" : "text-sm font-bold text-red-700"}>{message}</p> : null}
           <button type="submit" disabled={status === "loading"} className="min-h-11 rounded bg-brand-700 px-5 font-bold text-white hover:bg-brand-800 disabled:opacity-60">
             {status === "loading" ? "Submitting..." : "Send message"}
           </button>
         </div>
       </form>
+
+      {feedbackOpen && (status === "success" || status === "error") && message ? (
+        <FeedbackModal
+          status={status}
+          message={message}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      ) : null}
 
       {pendingTicket ? (
         <div className="fixed inset-0 z-[120] grid place-items-center bg-ink/70 px-3 py-5 backdrop-blur-sm sm:px-4 sm:py-8">
@@ -150,6 +160,38 @@ export function ContactForm() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function FeedbackModal({
+  status,
+  message,
+  onClose
+}: {
+  status: Exclude<Status, "idle" | "loading">;
+  message: string;
+  onClose: () => void;
+}) {
+  const isSuccess = status === "success";
+
+  return (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-ink/70 px-3 py-5 backdrop-blur-sm sm:px-4 sm:py-8">
+      <div className="w-full max-w-md rounded border border-white/10 bg-white p-5 text-center shadow-soft sm:p-6">
+        <div className={`mx-auto grid h-14 w-14 place-items-center rounded-full ${isSuccess ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+          {isSuccess ? <CheckCircle2 size={28} /> : <AlertCircle size={28} />}
+        </div>
+        <p className="mt-4 text-sm font-black uppercase text-brand-700">{isSuccess ? "Message sent" : "Message not sent"}</p>
+        <h2 className="mt-2 text-2xl font-black">{isSuccess ? "We received your message" : "Please try again"}</h2>
+        <p className="mt-3 leading-7 text-ink/68">{message}</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 min-h-11 w-full rounded bg-brand-700 px-5 font-bold text-white hover:bg-brand-800"
+        >
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 

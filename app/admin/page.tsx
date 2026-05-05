@@ -104,7 +104,7 @@ export default async function AdminPage() {
 
   return (
     <AdminShell title="Admin console">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4">
         <Stat label="Users" value={usersCount} />
         <Stat label="Requests" value={requestsCount} />
         <Stat label="Revenue" value={formatNaira(payments._sum.amount || 0)} />
@@ -154,7 +154,7 @@ export default async function AdminPage() {
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="min-w-0 rounded border border-brand-900/10 bg-white p-4 shadow-sm">
+    <div className="w-[calc((100vw-2.25rem)/2)] min-w-[calc((100vw-2.25rem)/2)] snap-start rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:w-auto sm:min-w-0">
       <p className="text-sm font-bold text-ink/55">{label}</p>
       <p className="mt-2 break-words text-2xl font-black">{value}</p>
     </div>

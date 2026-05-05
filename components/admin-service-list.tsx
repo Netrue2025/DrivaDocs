@@ -121,7 +121,7 @@ export function AdminServiceList({
                   </p>
                 </div>
 
-                <div className="grid w-full min-w-0 gap-2 sm:flex sm:flex-wrap sm:items-center lg:w-auto" onClick={(event) => event.stopPropagation()}>
+                <div className="flex w-full min-w-0 flex-row flex-wrap items-center gap-2 sm:w-auto lg:w-auto" onClick={(event) => event.stopPropagation()}>
                   <button
                     type="button"
                     onClick={() => setPendingStatus(request)}
@@ -135,7 +135,7 @@ export function AdminServiceList({
                     <button
                       type="button"
                       onClick={() => setPendingPayment(request)}
-                      className="h-9 w-full whitespace-nowrap rounded bg-road px-3 text-xs font-black text-ink sm:w-auto"
+                      className="h-9 whitespace-nowrap rounded bg-road px-3 text-xs font-black text-ink"
                     >
                       Mark paid
                     </button>
