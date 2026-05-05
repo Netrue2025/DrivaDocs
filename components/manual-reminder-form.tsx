@@ -51,9 +51,9 @@ export function ManualReminderForm({ services }: { services: ServiceOption[] }) 
   }
 
   return (
-    <form onSubmit={onSubmit} className="rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
-      <div className="grid gap-4">
-        <label className="grid gap-2 text-sm font-bold text-ink/75">
+    <form onSubmit={onSubmit} className="min-w-0 overflow-hidden rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
+      <div className="grid min-w-0 gap-4">
+        <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75">
           Select service
           <select
             value={selectedServiceId}
@@ -65,7 +65,7 @@ export function ManualReminderForm({ services }: { services: ServiceOption[] }) 
               setStatus("idle");
             }}
             required
-            className="min-h-11 rounded border border-brand-900/15 px-3 focus-ring"
+            className="min-h-11 w-full min-w-0 max-w-full truncate rounded border border-brand-900/15 bg-white px-3 focus-ring"
           >
             <option value="">Choose an existing service</option>
             {services.map((service) => (
@@ -77,12 +77,12 @@ export function ManualReminderForm({ services }: { services: ServiceOption[] }) 
         </label>
 
         {selectedService ? (
-          <div className="grid gap-4 rounded bg-brand-50 p-4">
-            <div>
-              <p className="text-sm font-black text-brand-800">{selectedService.title}</p>
-              <p className="mt-1 text-xs font-bold uppercase text-ink/50">{selectedService.serviceType.replaceAll("_", " ")}</p>
+          <div className="grid min-w-0 gap-4 overflow-hidden rounded bg-brand-50 p-4">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-black text-brand-800">{selectedService.title}</p>
+              <p className="mt-1 break-words text-xs font-bold uppercase text-ink/50">{selectedService.serviceType.replaceAll("_", " ")}</p>
             </div>
-            <label className="grid gap-2 text-sm font-bold text-ink/75">
+            <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75">
               Document expiry date
               <input
                 type="date"
@@ -94,11 +94,11 @@ export function ManualReminderForm({ services }: { services: ServiceOption[] }) 
                   }
                 }}
                 required
-                className="min-h-11 rounded border border-brand-900/15 px-3 focus-ring"
+                className="min-h-11 w-full min-w-0 rounded border border-brand-900/15 px-3 focus-ring"
               />
             </label>
             {expiryDate ? (
-              <label className="grid gap-2 text-sm font-bold text-ink/75">
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75">
                 Reminder date
                 <input
                   type="date"
@@ -106,7 +106,7 @@ export function ManualReminderForm({ services }: { services: ServiceOption[] }) 
                   onChange={(event) => setReminderDate(event.target.value)}
                   max={expiryDate}
                   required
-                  className="min-h-11 rounded border border-brand-900/15 px-3 focus-ring"
+                  className="min-h-11 w-full min-w-0 rounded border border-brand-900/15 px-3 focus-ring"
                 />
                 <span className="text-xs font-semibold text-ink/55">Reminder date must be before the document expiry date.</span>
               </label>

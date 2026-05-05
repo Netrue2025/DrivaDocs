@@ -86,7 +86,7 @@ async function main() {
     create: {
       name: "DrivaDocs Admin",
       email: "admin@drivadocs.ng",
-      phone: "2348000000000",
+      phone: "2349074707624",
       passwordHash,
       role: "SUPER_ADMIN",
       accountType: "INDIVIDUAL"

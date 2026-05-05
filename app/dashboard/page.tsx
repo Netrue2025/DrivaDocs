@@ -80,7 +80,7 @@ export default async function DashboardPage() {
               )) : <p className="text-sm text-ink/60">No reminders yet. New submitted services will create reminders automatically.</p>}
             </div>
           </div>
-          <a href="https://wa.me/2348000000000" className="flex flex-wrap items-center justify-between gap-4 rounded bg-brand-800 p-5 font-black text-white">
+          <a href="https://wa.me/2348147511776" className="flex flex-wrap items-center justify-between gap-4 rounded bg-brand-800 p-5 font-black text-white">
             WhatsApp/call support <MessageCircle />
           </a>
         </div>
