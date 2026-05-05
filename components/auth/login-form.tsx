@@ -7,6 +7,7 @@ import { useState } from "react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,7 @@ export function LoginForm() {
     const response = await signIn("credentials", {
       email: form.get("email"),
       password: form.get("password"),
-      callbackUrl: searchParams.get("callbackUrl") || "/dashboard",
+      callbackUrl,
       redirect: false
     });
 
@@ -28,7 +29,7 @@ export function LoginForm() {
       return;
     }
 
-    window.location.assign(response?.url || searchParams.get("callbackUrl") || "/dashboard");
+    window.location.assign(response?.url || callbackUrl);
   }
 
   return (
@@ -47,7 +48,7 @@ export function LoginForm() {
       </button>
       <p className="text-sm text-ink/60">
         New to DrivaDocs?{" "}
-        <Link href="/signup" className="font-bold text-brand-700">
+        <Link href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="font-bold text-brand-700">
           Create an account
         </Link>
       </p>

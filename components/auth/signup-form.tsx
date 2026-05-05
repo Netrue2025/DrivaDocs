@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -9,6 +9,8 @@ type AccountType = "INDIVIDUAL" | "BUSINESS";
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [accountType, setAccountType] = useState<AccountType>("INDIVIDUAL");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ export function SignupForm() {
         redirect: false
       });
 
-      router.push("/dashboard");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("Unable to reach the server. Please check your connection and try again.");
@@ -84,7 +86,7 @@ export function SignupForm() {
       </button>
       <p className="text-sm text-ink/60">
         Already have an account?{" "}
-        <Link href="/login" className="font-bold text-brand-700">
+        <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="font-bold text-brand-700">
           Log in
         </Link>
       </p>

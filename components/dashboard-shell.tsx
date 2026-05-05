@@ -133,6 +133,9 @@ function MobileDashboardNav({
   onPendingHref: (href: string) => void;
 }) {
   const activePanel = activeGroup ? mobileGroups[activeGroup] : null;
+  const routeServiceActive = !activeGroup && isServicePath(pathname);
+  const routeToolActive = !activeGroup && isToolPath(pathname);
+  const routeSettingsActive = !activeGroup && isSettingsPath(pathname);
 
   return (
     <>
@@ -171,10 +174,10 @@ function MobileDashboardNav({
       ) : null}
 
       <nav className="fixed inset-x-3 bottom-3 z-[70] grid grid-cols-4 gap-1 rounded border border-brand-900/10 bg-white/95 p-2 shadow-soft backdrop-blur lg:hidden">
-        <BottomLink href="/dashboard" label="Overview" icon={LayoutDashboard} active={pathname === "/dashboard"} />
-        <BottomButton label="Services" icon={ClipboardList} active={isServicePath(pathname) || activeGroup === "services"} onClick={() => onGroup(activeGroup === "services" ? null : "services")} />
-        <BottomButton label="Tools" icon={Wrench} active={isToolPath(pathname) || activeGroup === "tools"} onClick={() => onGroup(activeGroup === "tools" ? null : "tools")} />
-        <BottomButton label="Settings" icon={Settings} active={isSettingsPath(pathname) || activeGroup === "settings"} onClick={() => onGroup(activeGroup === "settings" ? null : "settings")} />
+        <BottomLink href="/dashboard" label="Overview" icon={LayoutDashboard} active={!activeGroup && pathname === "/dashboard"} onClick={() => onGroup(null)} />
+        <BottomButton label="Services" icon={ClipboardList} active={activeGroup === "services" || routeServiceActive} onClick={() => onGroup(activeGroup === "services" ? null : "services")} />
+        <BottomButton label="Tools" icon={Wrench} active={activeGroup === "tools" || routeToolActive} onClick={() => onGroup(activeGroup === "tools" ? null : "tools")} />
+        <BottomButton label="Settings" icon={Settings} active={activeGroup === "settings" || routeSettingsActive} onClick={() => onGroup(activeGroup === "settings" ? null : "settings")} />
       </nav>
     </>
   );
@@ -188,16 +191,19 @@ function BottomLink({
   href,
   label,
   icon: Icon,
-  active
+  active,
+  onClick
 }: {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   active: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`grid min-h-14 place-items-center rounded px-1 text-[11px] font-black ${active ? "bg-brand-700 text-white" : "text-ink/62"}`}
     >
       <Icon size={20} />
@@ -232,6 +238,7 @@ function BottomButton({
 function isActivePath(pathname: string, href: string) {
   const cleanHref = href.split("?")[0];
   if (cleanHref === "/dashboard") return pathname === cleanHref;
+  if (cleanHref === "/dashboard/requests") return pathname === cleanHref;
   return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
 }
 

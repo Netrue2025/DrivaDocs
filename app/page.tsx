@@ -16,23 +16,24 @@ import Image from "next/image";
 import { ButtonLink } from "@/components/ui/button-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { ServiceStartLink } from "@/components/service-start-link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 const services = [
-  "Vehicle document renewal",
-  "New vehicle registration",
-  "Change of ownership",
-  "Other vehicle papers/permits",
-  "Local government papers",
-  "Signage",
-  "Reprint of faded number plate",
-  "New driver's license",
-  "Driver's license renewal",
-  "International driver's license",
-  "New motorcycle rider's license",
-  "Motorcycle rider's license renewal"
+  { label: "Vehicle document renewal", href: "/dashboard/requests/new?fresh=1&serviceType=VEHICLE_PAPER_RENEWAL" },
+  { label: "New vehicle registration", href: "/dashboard/requests/new?fresh=1&serviceType=NEW_VEHICLE_REGISTRATION" },
+  { label: "Change of ownership", href: "/dashboard/requests/new?fresh=1&serviceType=CHANGE_OF_OWNERSHIP" },
+  { label: "Other vehicle papers/permits", href: "/dashboard/requests/new?fresh=1&serviceType=OTHER_PERMIT" },
+  { label: "Local government papers", href: "/dashboard/requests/new?fresh=1&serviceType=OTHER_PERMIT&otherDocument=Local%20Government%20Papers%20(South%20West)%2FBasket" },
+  { label: "Signage", href: "/dashboard/requests/new?fresh=1&serviceType=OTHER_PERMIT&otherDocument=Signage%20(Half%20Branding)" },
+  { label: "Reprint of faded number plate", href: "/dashboard/requests/new?fresh=1&serviceType=FADED_NUMBER_PLATE_REPRINT" },
+  { label: "New driver's license", href: "/dashboard/requests/new?fresh=1&serviceType=NEW_DRIVERS_LICENSE" },
+  { label: "Driver's license renewal", href: "/dashboard/requests/new?fresh=1&serviceType=DRIVERS_LICENSE_RENEWAL" },
+  { label: "International driver's license", href: "/dashboard/requests/new?fresh=1&serviceType=INTERNATIONAL_DRIVERS_LICENSE" },
+  { label: "New motorcycle rider's license", href: "/dashboard/requests/new?fresh=1&serviceType=NEW_MOTORCYCLE_RIDERS_LICENSE" },
+  { label: "Motorcycle rider's license renewal", href: "/dashboard/requests/new?fresh=1&serviceType=MOTORCYCLE_RIDERS_LICENSE_RENEWAL" }
 ];
 
 const reasons = [
@@ -224,10 +225,10 @@ export default async function HomePage() {
           />
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => (
-              <div key={service} className="interactive-lift flex items-center gap-3 rounded border border-brand-900/10 bg-white/95 p-4 shadow-sm backdrop-blur">
+              <ServiceStartLink key={service.label} href={service.href} className="interactive-lift flex items-center gap-3 rounded border border-brand-900/10 bg-white/95 p-4 shadow-sm backdrop-blur focus-ring">
                 <FileText className="text-brand-700" size={20} />
-                <span className="font-semibold text-ink/78">{service}</span>
-              </div>
+                <span className="font-semibold text-ink/78">{service.label}</span>
+              </ServiceStartLink>
             ))}
           </div>
         </div>

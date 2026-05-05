@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Bell, CreditCard, FileCheck2, MessageCircle } from "lucide-react";
+import { Bell, CreditCard, Download, Eye, FileCheck2, MessageCircle, ReceiptText } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { ReminderControls } from "@/components/reminder-controls";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,17 @@ export default async function DashboardPage() {
     prisma.serviceRequest.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
-      take: 5
+      take: 5,
+      include: {
+        documents: {
+          orderBy: { createdAt: "desc" }
+        },
+        payments: {
+          where: { status: "SUCCESS" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
     }).catch(() => []),
     prisma.payment.aggregate({
       where: { userId: session.user.id, status: "SUCCESS" },
@@ -46,15 +56,28 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4 grid gap-3">
             {requests.length ? (
-              requests.map((request) => (
-                <div key={request.id} className="flex flex-wrap items-center justify-between gap-4 rounded border border-brand-900/10 p-3 sm:flex-nowrap">
-                  <div className="min-w-0">
-                    <p className="break-words font-bold">{request.title}</p>
-                    <p className="text-sm text-ink/55">{request.requestCode}</p>
+              requests.map((request) => {
+                const readyDocument = request.documents.find((document) => document.kind === "RENEWED_DOCUMENT");
+                const documentUrl = readyDocument?.publicUrl || publicUrlFromStorageKey(readyDocument?.storageKey || "");
+                return (
+                  <div key={request.id} className="grid min-w-0 gap-3 rounded border border-brand-900/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <p className="break-words font-bold">{request.title}</p>
+                      <p className="text-sm text-ink/55">{request.requestCode}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <Badge tone={overviewStatusTone(request.status)}>{request.status.replaceAll("_", " ")}</Badge>
+                      {documentUrl ? (
+                        <>
+                          <IconAction href={documentUrl} label="View ready document" icon={Eye} />
+                          <IconAction href={documentUrl} label="Download ready document" icon={Download} download />
+                        </>
+                      ) : null}
+                      <ReceiptAction href={`/dashboard/requests/${request.id}/receipt`} disabled={!request.payments.length} />
+                    </div>
                   </div>
-                  <Badge tone={request.status === "DELIVERED" ? "green" : "amber"}>{request.status.replaceAll("_", " ")}</Badge>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="rounded bg-brand-50 p-4 text-sm font-semibold text-ink/65">No service requests yet.</p>
             )}
@@ -87,6 +110,80 @@ export default async function DashboardPage() {
       </div>
     </DashboardShell>
   );
+}
+
+function ReceiptAction({
+  href,
+  disabled
+}: {
+  href: string;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return (
+      <span className="inline-flex h-9 items-center gap-1.5 rounded border border-brand-900/10 px-2.5 text-xs font-black text-ink/25" title="Receipt is available after payment">
+        <ReceiptText size={16} /> Receipt
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      title="View receipt"
+      aria-label="View receipt"
+      className="inline-flex h-9 items-center gap-1.5 rounded border border-brand-900/10 bg-white px-2.5 text-xs font-black text-brand-800 transition hover:bg-brand-50"
+    >
+      <ReceiptText size={16} /> Receipt
+    </a>
+  );
+}
+
+function IconAction({
+  href,
+  label,
+  icon: Icon,
+  disabled,
+  download
+}: {
+  href: string | null;
+  label: string;
+  icon: typeof Eye;
+  disabled?: boolean;
+  download?: boolean;
+}) {
+  if (disabled || !href) {
+    return (
+      <span title={label} className="grid h-9 w-9 place-items-center rounded border border-brand-900/10 text-ink/25">
+        <Icon size={16} />
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target={download ? "_blank" : undefined}
+      rel={download ? "noreferrer" : undefined}
+      download={download}
+      title={label}
+      aria-label={label}
+      className="grid h-9 w-9 place-items-center rounded border border-brand-900/10 bg-white text-brand-800 transition hover:bg-brand-50"
+    >
+      <Icon size={16} />
+    </a>
+  );
+}
+
+function overviewStatusTone(status: string): "green" | "amber" | "gray" | "red" {
+  if (["DOCUMENT_READY", "DELIVERED"].includes(status)) return "green";
+  if (status === "CANCELLED") return "red";
+  if (status === "DRAFT") return "gray";
+  return "amber";
+}
+
+function publicUrlFromStorageKey(storageKey: string) {
+  return storageKey.startsWith("uploads/") ? `/${storageKey}` : null;
 }
 
 function Stat({ icon: Icon, label, value }: { icon: typeof FileCheck2; label: string; value: React.ReactNode }) {

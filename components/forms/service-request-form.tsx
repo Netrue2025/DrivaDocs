@@ -67,8 +67,8 @@ export function ServiceRequestForm({
     ...(initialDraft?.values || {}),
     ...(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {})
   };
-  const [step, setStep] = useState<WizardStep>(freshStart ? 0 : initialDraft?.step ?? (initialService ? 1 : 0));
-  const [serviceType, setServiceType] = useState<ServiceType | "">(freshStart ? "" : initialService);
+  const [step, setStep] = useState<WizardStep>(freshStart ? (initialService ? 1 : 0) : initialDraft?.step ?? (initialService ? 1 : 0));
+  const [serviceType, setServiceType] = useState<ServiceType | "">(initialService);
   const [state, setState] = useState(initialDraft?.state || initialState || "Lagos");
   const [vehicleType, setVehicleType] = useState(initialDraft?.vehicleType || initialVehicleType || "Car");
   const [values, setValues] = useState<Record<string, string>>(initialValues);
@@ -128,11 +128,11 @@ export function ServiceRequestForm({
     try {
       if (freshStart) {
         window.localStorage.removeItem(cacheKey);
-        setStep(0);
-        setServiceType("");
+        setStep(initialService ? 1 : 0);
+        setServiceType(initialService);
         setState(initialState || "Lagos");
         setVehicleType(initialVehicleType || "Car");
-        setValues({});
+        setValues(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {});
         setFiles({});
         setFileMeta({});
         setPaymentChoice("UPFRONT_75");
