@@ -5,5 +5,6 @@ node_modules
 dist
 coverage
 *.log
-uploads
+/uploads
+/public/uploads
 prisma/dev.db
