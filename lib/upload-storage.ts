@@ -23,7 +23,7 @@ export async function saveUploadedFile(file: File, folder: string) {
 
   return {
     storageKey: relativePath,
-    publicUrl: `/${relativePath}`
+    publicUrl: `/api/${relativePath}`
   };
 }
 
@@ -57,7 +57,7 @@ async function saveToSupabaseStorage(bytes: Buffer, file: File, storageKey: stri
 
   return {
     storageKey,
-    publicUrl: `${supabaseUrl}/storage/v1/object/public/${bucket}/${storageKey}`
+    publicUrl: `/api/${storageKey}`
   };
 }
 

@@ -113,7 +113,7 @@ export function NavbarClient({
                 Log in
               </NavAction>
               <NavAction href="/signup" tone="solid">
-                Get Started
+                Sign up, it&apos;s free
               </NavAction>
             </>
           )}
@@ -155,7 +155,7 @@ export function NavbarClient({
                     Log in
                   </NavAction>
                   <NavAction href="/signup" tone="solid" className="w-full">
-                    Get Started
+                    Sign up, it&apos;s free
                   </NavAction>
                 </>
               )}
@@ -202,6 +202,8 @@ function ProfileAction({
         aria-label="Open dashboard"
       >
         {image && !imageFailed ? (
+          // The profile image can be a user-uploaded object URL or external provider URL.
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="" onError={() => setImageFailed(true)} className="h-9 w-9 rounded-full object-cover ring-2 ring-road/70" />
         ) : (
           <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-700 text-xs text-white ring-2 ring-road/70">

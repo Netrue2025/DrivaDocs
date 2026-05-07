@@ -57,6 +57,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       <div className="grid gap-5">
         <div className="flex flex-wrap items-center gap-4">
           {preview ? (
+            // The preview can be a temporary object URL from a local file input.
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="" className="h-24 w-24 rounded-full object-cover ring-4 ring-road/70" />
           ) : (
             <span className="grid h-24 w-24 place-items-center rounded-full bg-brand-700 text-2xl font-black text-white ring-4 ring-road/70">

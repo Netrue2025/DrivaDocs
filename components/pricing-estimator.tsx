@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { engineCategories, otherDocumentServices, serviceLabels, states, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { engineCategories, newVehicleRegistrationCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehiclePaperRenewalCategories, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira, splitPayment } from "@/lib/utils";
 
 type ServiceType = keyof typeof serviceLabels;
+type DeliveryMethod = "PHYSICAL_DELIVERY" | "SCAN_TO_ME" | "PICKUP_OFFICE";
 
 const serviceTypes = Object.keys(serviceLabels).filter((item) => item !== "DELIVERY") as ServiceType[];
 
@@ -77,6 +78,12 @@ const serviceFieldRules: Record<
 };
 
 const ownershipRoutes = ["Lagos to Lagos", "Lagos to Oyo", "Oyo to Oyo"];
+const preferredPlateStates = [...newVehicleRegistrationLocations, "Others State"];
+const deliveryMethods: { value: DeliveryMethod; label: string }[] = [
+  { value: "PHYSICAL_DELIVERY", label: "Physical delivery" },
+  { value: "SCAN_TO_ME", label: "Scan to me (online)" },
+  { value: "PICKUP_OFFICE", label: "Pickup from our office" }
+];
 
 export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const [serviceType, setServiceType] = useState<ServiceType | "">("");
@@ -84,19 +91,52 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const [engineCategory, setEngineCategory] = useState("1.6L - 2.0L");
   const [usage, setUsage] = useState("PRIVATE");
   const [state, setState] = useState("Lagos");
+  const [otherState, setOtherState] = useState("");
   const [ownershipRoute, setOwnershipRoute] = useState("Lagos to Lagos");
+  const [deliveryState, setDeliveryState] = useState("Lagos");
   const [deliveryLocation, setDeliveryLocation] = useState("Mainland");
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PHYSICAL_DELIVERY");
   const [otherDocument, setOtherDocument] = useState("");
   const [estimateOpen, setEstimateOpen] = useState(false);
 
   const rules = serviceType ? serviceFieldRules[serviceType] : null;
+  const showPreferredStatePlate = serviceType === "NEW_VEHICLE_REGISTRATION";
   const otherDocumentReady = serviceType !== "OTHER_PERMIT" || Boolean(otherDocument);
+  const preferredStateReady = serviceType !== "NEW_VEHICLE_REGISTRATION" || state !== "Others State" || Boolean(otherState.trim());
+  const deliveryOptions = useMemo(() => deliveryOptionsForState(prices, deliveryState), [deliveryState, prices]);
+  const selectedDeliveryLocation = deliveryOptions.some((item) => item.location === deliveryLocation)
+    ? deliveryLocation
+    : deliveryOptions[0]?.location || deliveryState;
+  const servicePricingState = serviceType === "NEW_VEHICLE_REGISTRATION" && state === "Others State" ? otherState.trim() : state;
 
   const servicePrice = useMemo(() => {
     if (!serviceType) return undefined;
+    const preferredState = servicePricingState;
+    const effectiveEngineCategory = vehicleType === "Motorcycle" ? "Motorcycle" : engineCategory;
 
     if (serviceType === "OTHER_PERMIT") {
       return prices.find((item) => item.serviceType === serviceType && item.serviceName === otherDocument);
+    }
+
+    if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+      return (
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && item.usage === usage) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && item.usage === "PRIVATE/COMMERCIAL") ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && !item.usage) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === effectiveEngineCategory) && !item.state) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
+        prices.find((item) => item.serviceType === serviceType)
+      );
+    }
+
+    if (serviceType === "VEHICLE_PAPER_RENEWAL") {
+      return (
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && !item.engineCategory && !item.usage && !item.state) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state && !item.engineCategory && !item.usage) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
+        prices.find((item) => item.serviceType === serviceType)
+      );
     }
 
     return (
@@ -105,41 +145,40 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
           item.serviceType === serviceType &&
           (!item.location || item.location === ownershipRoute) &&
           (!item.vehicleType || item.vehicleType === vehicleType) &&
-          (!item.engineCategory || item.engineCategory === engineCategory) &&
+          (!item.engineCategory || item.engineCategory === effectiveEngineCategory) &&
           (!item.usage || item.usage === usage) &&
-          (!item.state || item.state === state)
+          (!item.state || item.state === preferredState)
       ) ??
-      prices.find((item) => item.serviceType === serviceType && (!item.state || item.state === state)) ??
+      prices.find((item) => item.serviceType === serviceType && (!item.state || item.state === preferredState)) ??
       prices.find((item) => item.serviceType === serviceType)
     );
-  }, [engineCategory, otherDocument, ownershipRoute, prices, serviceType, state, usage, vehicleType]);
+  }, [engineCategory, otherDocument, ownershipRoute, prices, servicePricingState, serviceType, state, usage, vehicleType]);
 
   const delivery = useMemo(() => {
     return (
-      prices.find(
-        (item) => item.serviceType === "DELIVERY" && item.state === state && item.location === deliveryLocation
-      ) ?? prices.find((item) => item.serviceType === "DELIVERY" && item.state === state)
+      prices.find((item) => item.serviceType === "DELIVERY" && item.state === deliveryState && item.location === selectedDeliveryLocation) ??
+      prices.find((item) => item.serviceType === "DELIVERY" && item.state === deliveryState)
     );
-  }, [deliveryLocation, prices, state]);
+  }, [deliveryState, prices, selectedDeliveryLocation]);
 
   const base = servicePrice?.amount ?? 0;
-  const deliveryCost = delivery?.amount ?? 0;
+  const deliveryCost = deliveryMethod === "PHYSICAL_DELIVERY" ? delivery?.amount ?? 0 : 0;
   const isNegotiated = Boolean(servicePrice?.notes && servicePrice.amount === 0);
   const total = isNegotiated ? 0 : base + deliveryCost;
   const split = splitPayment(total);
   const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
-  const canEstimate = Boolean(serviceType && otherDocumentReady);
+  const canEstimate = Boolean(serviceType && otherDocumentReady && preferredStateReady);
   const startUrl = useMemo(() => {
     if (!serviceType) return "/dashboard/requests/new";
 
     const params = new URLSearchParams({
       serviceType,
-      state,
+      state: serviceType === "NEW_VEHICLE_REGISTRATION" && state === "Others State" ? otherState.trim() || "Others State" : state,
       vehicleType
     });
     if (serviceType === "OTHER_PERMIT" && otherDocument) params.set("otherDocument", otherDocument);
     return `/dashboard/requests/new?${params.toString()}`;
-  }, [otherDocument, serviceType, state, vehicleType]);
+  }, [otherDocument, otherState, serviceType, state, vehicleType]);
 
   function showEstimate() {
     if (!canEstimate) return;
@@ -161,8 +200,14 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
             <select
               value={serviceType}
               onChange={(event) => {
-                setServiceType(event.target.value as ServiceType);
+                const nextService = event.target.value as ServiceType;
+                setServiceType(nextService);
+                setVehicleType(defaultVehicleTypeForService(nextService));
                 setOtherDocument("");
+                setState("Lagos");
+                setOtherState("");
+                setDeliveryState("Lagos");
+                setDeliveryLocation("Mainland");
                 setEstimateOpen(false);
               }}
               className="field min-h-14 text-base font-bold"
@@ -207,13 +252,13 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                     }}
                     className="field"
                   >
-                    {vehicleTypes.map((item) => (
+                    {vehicleOptionsForService(serviceType).map((item) => (
                       <option key={item}>{item}</option>
                     ))}
                   </select>
                 </Field>
               ) : null}
-              {rules.engineCategory ? (
+              {rules.engineCategory && serviceType !== "NEW_VEHICLE_REGISTRATION" && serviceType !== "VEHICLE_PAPER_RENEWAL" && vehicleType !== "Motorcycle" ? (
                 <Field label="Engine/category">
                   <select
                     value={engineCategory}
@@ -229,7 +274,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                   </select>
                 </Field>
               ) : null}
-              {rules.usage ? (
+              {rules.usage && serviceType !== "VEHICLE_PAPER_RENEWAL" ? (
                 <Field label="Private or commercial">
                   <select
                     value={usage}
@@ -263,35 +308,83 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                   </select>
                 </Field>
               ) : null}
-              {rules.state && otherDocumentReady ? (
-                <Field label={serviceType === "OTHER_PERMIT" ? "Delivery state" : "State/location"}>
+              {rules.state && otherDocumentReady && showPreferredStatePlate ? (
+                <Field label="Preferred state plate">
                   <select
                     value={state}
                     onChange={(event) => {
                       setState(event.target.value);
+                      setOtherState("");
                       setEstimateOpen(false);
                     }}
                     className="field"
                   >
-                    {states.map((item) => (
+                    {preferredPlateStates.map((item) => (
                       <option key={item}>{item}</option>
                     ))}
                   </select>
                 </Field>
               ) : null}
+              {rules.state && otherDocumentReady && showPreferredStatePlate && state === "Others State" ? (
+                <Field label="Other preferred state">
+                  <input
+                    value={otherState}
+                    onChange={(event) => {
+                      setOtherState(event.target.value);
+                      setEstimateOpen(false);
+                    }}
+                    className="field"
+                    placeholder="Type preferred state"
+                  />
+                </Field>
+              ) : null}
               {rules.deliveryLocation && otherDocumentReady ? (
-                <Field label="Delivery method/location">
+                <Field label="Delivery option">
                   <select
-                    value={deliveryLocation}
+                    value={deliveryMethod}
+                    onChange={(event) => {
+                      setDeliveryMethod(event.target.value as DeliveryMethod);
+                      setEstimateOpen(false);
+                    }}
+                    className="field"
+                  >
+                    {deliveryMethods.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </Field>
+              ) : null}
+              {rules.deliveryLocation && otherDocumentReady && deliveryMethod === "PHYSICAL_DELIVERY" ? (
+                <Field label="Delivery state">
+                  <select
+                    value={deliveryState}
+                    onChange={(event) => {
+                      const nextState = event.target.value;
+                      setDeliveryState(nextState);
+                      setDeliveryLocation(deliveryOptionsForState(prices, nextState)[0]?.location || nextState);
+                      setEstimateOpen(false);
+                    }}
+                    className="field"
+                  >
+                    {deliveryStates.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+              {rules.deliveryLocation && otherDocumentReady && deliveryMethod === "PHYSICAL_DELIVERY" ? (
+                <Field label="Delivery location">
+                  <select
+                    value={selectedDeliveryLocation}
                     onChange={(event) => {
                       setDeliveryLocation(event.target.value);
                       setEstimateOpen(false);
                     }}
                     className="field"
                   >
-                    <option>Mainland</option>
-                    <option>Island</option>
-                    <option>Ibadan</option>
+                    {deliveryOptions.map((item) => (
+                      <option key={item.location} value={item.location}>
+                        {item.location} - {formatNaira(item.amount)}
+                      </option>
+                    ))}
                   </select>
                 </Field>
               ) : null}
@@ -382,4 +475,24 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
       <span className={strong ? "text-2xl font-black text-road" : "font-bold"}>{value}</span>
     </div>
   );
+}
+
+function vehicleOptionsForService(serviceType: ServiceType | "") {
+  if (serviceType === "NEW_VEHICLE_REGISTRATION") return newVehicleRegistrationCategories;
+  if (serviceType === "VEHICLE_PAPER_RENEWAL") return vehiclePaperRenewalCategories;
+  return vehicleTypes;
+}
+
+function defaultVehicleTypeForService(serviceType: ServiceType | "") {
+  return vehicleOptionsForService(serviceType)[0] || "Car";
+}
+
+function deliveryOptionsForState(prices: PricingItem[], state: string) {
+  return prices
+    .filter((item) => item.serviceType === "DELIVERY" && item.state === state)
+    .map((item) => ({
+      location: item.location || item.state || "Delivery",
+      amount: item.amount
+    }))
+    .filter((item, index, source) => source.findIndex((candidate) => candidate.location === item.location) === index);
 }

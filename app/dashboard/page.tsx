@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Bell, CreditCard, Download, Eye, FileCheck2, MessageCircle, ReceiptText } from "lucide-react";
+import { Bell, CreditCard, Download, Eye, FileCheck2, ReceiptText } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { ReminderControls } from "@/components/reminder-controls";
 import { Badge } from "@/components/ui/badge";
 import { authOptions } from "@/lib/auth";
+import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { prisma } from "@/lib/prisma";
 import { formatNaira } from "@/lib/utils";
 
@@ -58,7 +59,8 @@ export default async function DashboardPage() {
             {requests.length ? (
               requests.map((request) => {
                 const readyDocument = request.documents.find((document) => document.kind === "RENEWED_DOCUMENT");
-                const documentUrl = readyDocument?.publicUrl || publicUrlFromStorageKey(readyDocument?.storageKey || "");
+                const documentUrl = documentUrlFromStorageKey(readyDocument?.storageKey || "");
+                const downloadUrl = documentUrlFromStorageKey(readyDocument?.storageKey || "", true);
                 return (
                   <div key={request.id} className="grid min-w-0 gap-3 rounded border border-brand-900/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                     <div className="min-w-0">
@@ -70,7 +72,7 @@ export default async function DashboardPage() {
                       {documentUrl ? (
                         <>
                           <IconAction href={documentUrl} label="View ready document" icon={Eye} />
-                          <IconAction href={documentUrl} label="Download ready document" icon={Download} download />
+                          <IconAction href={downloadUrl} label="Download ready document" icon={Download} download />
                         </>
                       ) : null}
                       <ReceiptAction href={`/dashboard/requests/${request.id}/receipt`} disabled={!request.payments.length} />
@@ -103,9 +105,6 @@ export default async function DashboardPage() {
               )) : <p className="text-sm text-ink/60">No reminders yet. New submitted services will create reminders automatically.</p>}
             </div>
           </div>
-          <a href="https://wa.me/2348147511776" className="flex flex-wrap items-center justify-between gap-4 rounded bg-brand-800 p-5 font-black text-white">
-            WhatsApp/call support <MessageCircle />
-          </a>
         </div>
       </div>
     </DashboardShell>
@@ -180,10 +179,6 @@ function overviewStatusTone(status: string): "green" | "amber" | "gray" | "red" 
   if (status === "CANCELLED") return "red";
   if (status === "DRAFT") return "gray";
   return "amber";
-}
-
-function publicUrlFromStorageKey(storageKey: string) {
-  return storageKey.startsWith("uploads/") ? `/${storageKey}` : null;
 }
 
 function Stat({ icon: Icon, label, value }: { icon: typeof FileCheck2; label: string; value: React.ReactNode }) {

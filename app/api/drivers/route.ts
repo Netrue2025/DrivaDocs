@@ -1,27 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { driverSchema, toDriverData } from "@/lib/fleet-records";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const driverSchema = z.object({
-  surname: z.string().min(1),
-  firstName: z.string().min(1),
-  lastName: z.string().optional().or(z.literal("")),
-  dateOfBirth: z.string().optional().or(z.literal("")),
-  mothersMaidenName: z.string().optional().or(z.literal("")),
-  nextOfKinPhone: z.string().optional().or(z.literal("")),
-  facialMark: z.string().optional().or(z.literal("")),
-  disability: z.string().optional().or(z.literal("")),
-  phone: z.string().optional().or(z.literal("")),
-  stateOfOrigin: z.string().optional().or(z.literal("")),
-  localGovernment: z.string().optional().or(z.literal("")),
-  address: z.string().optional().or(z.literal("")),
-  nin: z.string().optional().or(z.literal(""))
-});
+const lockedStatuses = ["PROCESSING", "DOCUMENT_READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -29,25 +15,68 @@ export async function POST(request: Request) {
 
   const parsed = driverSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid driver" }, { status: 400 });
+  const businessAccount = session.user.accountType === "BUSINESS"
+    ? await prisma.businessAccount.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+    : null;
 
-  const driver = await prisma.driver.create({
-    data: {
-      userId: session.user.id,
-      surname: parsed.data.surname,
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName || null,
-      dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null,
-      mothersMaidenName: parsed.data.mothersMaidenName || null,
-      nextOfKinPhone: parsed.data.nextOfKinPhone || null,
-      facialMark: parsed.data.facialMark || null,
-      disability: parsed.data.disability || null,
-      phone: parsed.data.phone || null,
-      stateOfOrigin: parsed.data.stateOfOrigin || null,
-      localGovernment: parsed.data.localGovernment || null,
-      address: parsed.data.address || null,
-      nin: parsed.data.nin || null
+  const data = parsed.data;
+  const duplicate = await findDuplicateDriver(session.user.id, data);
+  if (duplicate && await isDriverLocked(duplicate.id)) {
+    return NextResponse.json({ error: "This driver already exists and is under process." }, { status: 409 });
+  }
+  const driverData = toDriverData(data, businessAccount?.id || null);
+  const driver = duplicate
+    ? await prisma.driver.update({
+        where: { id: duplicate.id },
+        data: driverData
+      })
+    : await prisma.driver.create({
+        data: {
+          userId: session.user.id,
+          ...driverData
+        }
+      });
+
+  return NextResponse.json(driver, { status: duplicate ? 200 : 201 });
+}
+
+async function findDuplicateDriver(userId: string, data: typeof driverSchema._type) {
+  const or: Prisma.DriverWhereInput[] = [];
+  const surname = data.surname.trim();
+  const firstName = data.firstName.trim();
+
+  if (data.nin?.trim()) or.push({ nin: { equals: data.nin.trim(), mode: "insensitive" } });
+  if (data.phone?.trim()) {
+    or.push({
+      surname: { equals: surname, mode: "insensitive" },
+      firstName: { equals: firstName, mode: "insensitive" },
+      phone: { equals: data.phone.trim(), mode: "insensitive" }
+    });
+  }
+  if (data.dateOfBirth) {
+    or.push({
+      surname: { equals: surname, mode: "insensitive" },
+      firstName: { equals: firstName, mode: "insensitive" },
+      dateOfBirth: new Date(data.dateOfBirth)
+    });
+  }
+  if (!or.length) return null;
+
+  return prisma.driver.findFirst({
+    where: {
+      userId,
+      OR: or
+    },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+async function isDriverLocked(id: string) {
+  const count = await prisma.serviceRequest.count({
+    where: {
+      driverId: id,
+      status: { in: lockedStatuses as never }
     }
   });
-
-  return NextResponse.json(driver, { status: 201 });
+  return count > 0;
 }

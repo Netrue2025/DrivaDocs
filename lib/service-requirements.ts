@@ -11,15 +11,15 @@ export type RequirementField = {
 export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DELIVERY">, RequirementField[]> = {
   VEHICLE_PAPER_RENEWAL: [
     { name: "expiredVehicleLicense", label: "Expired vehicle license", type: "file", accept: "document", required: true },
-    { name: "roadWorthinessCertificate", label: "Road worthiness certificate", type: "file", accept: "document", required: true },
-    { name: "insurancePolicy", label: "Insurance policy", type: "file", accept: "document", required: true },
-    { name: "documentName", label: "Name on document", required: true },
-    { name: "registrationNumber", label: "Registration number", required: true },
-    { name: "documentAddress", label: "Address on document", type: "textarea", required: true },
-    { name: "documentPhone", label: "Phone number on document", required: true }
+    { name: "roadWorthinessCertificate", label: "Road worthiness certificate", type: "file", accept: "document" },
+    { name: "proofOfOwnership", label: "Proof of ownership", type: "file", accept: "document" },
+    { name: "insurancePolicy", label: "Insurance certificate", type: "file", accept: "document" },
+    { name: "documentName", label: "Name on document" },
+    { name: "registrationNumber", label: "Registration number" },
+    { name: "documentAddress", label: "Address on document", type: "textarea" },
+    { name: "documentPhone", label: "Phone number on document" }
   ],
   NEW_VEHICLE_REGISTRATION: [
-    { name: "registrationCategory", label: "Registration category: Vehicle, Motorcycle, or Tricycle", required: true },
     { name: "customPaper", label: "Custom paper containing chassis number", type: "file", accept: "document", required: true },
     { name: "chassisPhoto", label: "Chassis photo on vehicle body", type: "file", accept: "image", required: true },
     { name: "salesReceipt", label: "Sales receipt", type: "file", accept: "document" },
@@ -39,9 +39,9 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "allocationPaper", label: "Allocation/registration/assessment paper", type: "file", accept: "document", required: true },
     { name: "cmr", label: "CMR where applicable", type: "file", accept: "document" },
     { name: "proofOfOwnership", label: "Proof of ownership", type: "file", accept: "document", required: true },
-    { name: "affidavit", label: "Affidavit for change of ownership/re-registration", type: "file", accept: "document", required: true },
-    { name: "policeReport", label: "Police report for change of ownership/re-registration", type: "file", accept: "document", required: true },
-    { name: "ownershipAgreement", label: "Sales/Purchase/Transfer of ownership agreement", type: "file", accept: "document", required: true },
+    { name: "affidavit", label: "Affidavit for change of ownership/re-registration", type: "file", accept: "document" },
+    { name: "policeReport", label: "Police report for change of ownership/re-registration", type: "file", accept: "document" },
+    { name: "ownershipAgreement", label: "Sales/Purchase/Transfer of ownership agreement", type: "file", accept: "document" },
     { name: "chassisPhoto", label: "Picture of chassis on vehicle", type: "file", accept: "image", required: true },
     { name: "governmentId", label: "Government ID card of new owner", type: "file", accept: "document", required: true },
     { name: "newOwnerName", label: "New name you want on the document", required: true },
@@ -88,7 +88,8 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "nigerianAddress", label: "Nigerian address", type: "textarea", required: true },
     { name: "dateOfBirth", label: "Date of birth", type: "date", required: true },
     { name: "nigerianPhoneNumber", label: "Nigerian phone number", required: true },
-    { name: "passportPhotograph", label: "Passport photograph with red background", type: "file", accept: "image", required: true }
+    { name: "passportPhotograph", label: "Passport photograph with red background", type: "file", accept: "image", required: true },
+    { name: "signatureWhitePaper", label: "Signature on white paper", type: "file", accept: "image", required: true }
   ],
   NEW_MOTORCYCLE_RIDERS_LICENSE: [
     { name: "surname", label: "Surname", required: true },

@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
+import { AdminFleetManager, type AdminFleetBusiness } from "@/components/admin-fleet-manager";
 import { AdminServiceList, type AdminServiceRequest } from "@/components/admin-service-list";
 import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { authOptions } from "@/lib/auth";
+import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { prisma } from "@/lib/prisma";
 import { formatNaira } from "@/lib/utils";
 
@@ -27,7 +29,7 @@ export default async function AdminPage() {
       return fallback;
     };
 
-  const [usersCount, requestsCount, payments, tickets, requests, staff, statusCounts] =
+  const [usersCount, requestsCount, payments, tickets, requests, staff, statusCounts, businessAccounts] =
     await Promise.all([
       prisma.user.count().catch(dbFallback(0)),
       prisma.serviceRequest.count().catch(dbFallback(0)),
@@ -50,6 +52,20 @@ export default async function AdminPage() {
       prisma.serviceRequest.groupBy({
         by: ["status"],
         _count: { status: true }
+      }).catch(dbFallback([])),
+      prisma.businessAccount.findMany({
+        orderBy: { companyName: "asc" },
+        include: {
+          user: true,
+          vehicles: {
+            orderBy: { createdAt: "desc" },
+            include: { serviceRequests: { select: { status: true } } }
+          },
+          drivers: {
+            orderBy: { createdAt: "desc" },
+            include: { requests: { select: { status: true } } }
+          }
+        }
       }).catch(dbFallback([]))
     ]);
 
@@ -76,7 +92,8 @@ export default async function AdminPage() {
           phone: request.deliveryAddress.phone,
           addressLine: request.deliveryAddress.addressLine,
           city: request.deliveryAddress.city,
-          state: request.deliveryAddress.state
+          state: request.deliveryAddress.state,
+          deliveryMethod: request.deliveryAddress.deliveryMethod
         }
       : null,
     assignedAdminId: request.assignedAdminId,
@@ -89,7 +106,7 @@ export default async function AdminPage() {
       fileName: document.fileName,
       mimeType: document.mimeType,
       fileSize: document.fileSize,
-      publicUrl: document.publicUrl || publicUrlFromStorageKey(document.storageKey),
+      publicUrl: documentUrlFromStorageKey(document.storageKey),
       storageKey: document.storageKey,
       verifiedAt: document.verifiedAt?.toISOString() || null,
       createdAt: document.createdAt.toISOString()
@@ -99,6 +116,52 @@ export default async function AdminPage() {
       amount: payment.amount,
       status: payment.status,
       type: payment.type
+    }))
+  }));
+  const fleetRows: AdminFleetBusiness[] = businessAccounts.map((business) => ({
+    id: business.id,
+    companyName: business.companyName,
+    owner: business.user.name || business.user.email,
+    vehicles: business.vehicles.map((vehicle) => ({
+      id: vehicle.id,
+      label: vehicle.registrationNo || `${vehicle.make} ${vehicle.model}`,
+      meta: `${vehicle.make} ${vehicle.model} - ${vehicle.vehicleType}`,
+      locked: isUnderProcess(vehicle.serviceRequests),
+      details: {
+        make: vehicle.make,
+        model: vehicle.model,
+        registrationNo: vehicle.registrationNo,
+        chassisNo: vehicle.chassisNo,
+        engineNo: vehicle.engineNo,
+        color: vehicle.color,
+        vehicleType: vehicle.vehicleType,
+        engineCategory: vehicle.engineCategory,
+        usage: vehicle.usage,
+        licenseExpiry: toInputDate(vehicle.licenseExpiry),
+        roadWorthinessExpiry: toInputDate(vehicle.roadWorthinessExpiry),
+        insuranceExpiry: toInputDate(vehicle.insuranceExpiry)
+      }
+    })),
+    drivers: business.drivers.map((driver) => ({
+      id: driver.id,
+      label: [driver.surname, driver.firstName, driver.lastName].filter(Boolean).join(" "),
+      meta: driver.phone || driver.address || "No contact details",
+      locked: isUnderProcess(driver.requests),
+      details: {
+        surname: driver.surname,
+        firstName: driver.firstName,
+        lastName: driver.lastName,
+        dateOfBirth: toInputDate(driver.dateOfBirth),
+        mothersMaidenName: driver.mothersMaidenName,
+        nextOfKinPhone: driver.nextOfKinPhone,
+        facialMark: driver.facialMark,
+        disability: driver.disability,
+        phone: driver.phone,
+        stateOfOrigin: driver.stateOfOrigin,
+        localGovernment: driver.localGovernment,
+        address: driver.address,
+        nin: driver.nin
+      }
     }))
   }));
 
@@ -120,6 +183,8 @@ export default async function AdminPage() {
       <div className="mt-6">
         <AdminServiceList requests={requestRows} />
       </div>
+
+      <AdminFleetManager businesses={fleetRows} />
 
       <section className="mt-6 grid min-w-0 gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)]">
         <div className="min-w-0 rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
@@ -152,6 +217,14 @@ export default async function AdminPage() {
   );
 }
 
+function isUnderProcess(requests: { status: string }[]) {
+  return requests.some((request) => ["PROCESSING", "DOCUMENT_READY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(request.status));
+}
+
+function toInputDate(date?: Date | null) {
+  return date ? date.toISOString().slice(0, 10) : null;
+}
+
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="w-[calc((100vw-2.25rem)/2)] min-w-[calc((100vw-2.25rem)/2)] snap-start rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:w-auto sm:min-w-0">
@@ -180,10 +253,6 @@ function statusLabel(status: string) {
 function getRequirementObject(requirements: Prisma.JsonValue | null) {
   if (!requirements || typeof requirements !== "object" || Array.isArray(requirements)) return {};
   return requirements as Record<string, unknown>;
-}
-
-function publicUrlFromStorageKey(storageKey: string) {
-  return storageKey.startsWith("uploads/") ? `/${storageKey}` : null;
 }
 
 function getAdminNotes(requirements: Prisma.JsonValue | null): { note: string; status?: string; by?: string; at?: string }[] {

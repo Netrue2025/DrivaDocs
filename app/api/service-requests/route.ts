@@ -32,11 +32,13 @@ const requestSchema = z.object({
   balanceAmount: z.number().nonnegative(),
   submissionMode: z.enum(["SAVE", "PAY_LATER", "PAY"]).default("PAY"),
   deliveryAddress: z.object({
+    label: z.string().optional(),
     recipientName: z.string().min(1).optional(),
     phone: z.string().min(1),
     addressLine: z.string().min(1),
     city: z.string().min(1),
-    state: z.string().min(1)
+    state: z.string().min(1),
+    deliveryMethod: z.string().optional()
   }).optional()
 });
 
@@ -55,9 +57,13 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const businessAccount = session.user.accountType === "BUSINESS"
+    ? await prisma.businessAccount.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+    : null;
   const requestData = {
       requestCode: requestCode(),
       userId: session.user.id,
+      businessAccountId: businessAccount?.id || null,
       serviceType: data.serviceType as never,
       title: data.title,
       state: data.state,
@@ -72,13 +78,15 @@ export async function POST(request: Request) {
       balanceAmount: data.balanceAmount
   };
   const deliveryAddressData = data.deliveryAddress
-    ? {
+      ? {
         userId: session.user.id,
+        label: data.deliveryAddress.label || null,
         recipientName: data.deliveryAddress.recipientName || session.user.name || session.user.email || "DrivaDocs client",
         phone: data.deliveryAddress.phone,
         addressLine: data.deliveryAddress.addressLine,
         city: data.deliveryAddress.city,
-        state: data.deliveryAddress.state
+        state: data.deliveryAddress.state,
+        deliveryMethod: data.deliveryAddress.deliveryMethod || "PHYSICAL_DELIVERY"
       }
     : undefined;
   const documentRows = data.documents.map((doc, index) => ({

@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Download, Eye } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { FleetBulkRequestAction } from "@/components/fleet-bulk-request-action";
 import { RequestPaymentAction } from "@/components/request-payment-action";
 import { Badge } from "@/components/ui/badge";
 import { authOptions } from "@/lib/auth";
+import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { verifyPaystackPayment } from "@/lib/paystack";
 import { prisma } from "@/lib/prisma";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
@@ -60,6 +62,8 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Re
             <tbody>
               {requests.map((request) => {
                 const canEdit = request.status === "DRAFT" || request.status === "AWAITING_PAYMENT";
+                const requirements = getRequirementObject(request.requirements);
+                const isBulkFleetOrder = requirements.bulkOrder === true;
                 const successfulPayments = request.payments.filter((payment) => payment.status === "SUCCESS");
                 const paidAmount = successfulPayments.reduce((sum, payment) => sum + payment.amount, 0);
                 const paymentState = getPaymentState({
@@ -73,7 +77,15 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Re
                   <tr key={request.id} className="border-b border-brand-900/10">
                     <td className="p-3 font-bold">{request.requestCode}</td>
                     <td className="p-3">
-                      {canEdit ? (
+                      {isBulkFleetOrder ? (
+                        <FleetBulkRequestAction
+                          requestId={request.id}
+                          title={request.title}
+                          serviceType={request.serviceType}
+                          status={request.status}
+                          requirements={requirements}
+                        />
+                      ) : canEdit ? (
                         <Link href={`/dashboard/requests/new?requestId=${request.id}`} className="font-bold text-brand-800 hover:text-brand-600">
                           {request.title}
                         </Link>
@@ -93,11 +105,12 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Re
                       {readyDocuments.length ? (
                         <div className="flex flex-wrap gap-2">
                           {readyDocuments.map((document) => {
-                            const href = document.publicUrl || publicUrlFromStorageKey(document.storageKey);
+                            const viewHref = documentUrlFromStorageKey(document.storageKey);
+                            const downloadHref = documentUrlFromStorageKey(document.storageKey, true);
                             return (
                               <div key={document.id} className="flex gap-1" title={document.fileName}>
-                                <DocumentAction href={href} label="View ready document" icon="view" />
-                                <DocumentAction href={href} label="Download ready document" icon="download" download />
+                                <DocumentAction href={viewHref} label="View ready document" icon="view" />
+                                <DocumentAction href={downloadHref} label="Download ready document" icon="download" download />
                               </div>
                             );
                           })}
@@ -224,8 +237,9 @@ function DocumentAction({
   );
 }
 
-function publicUrlFromStorageKey(storageKey: string) {
-  return storageKey.startsWith("uploads/") ? `/${storageKey}` : null;
+function getRequirementObject(requirements: unknown) {
+  if (!requirements || typeof requirements !== "object" || Array.isArray(requirements)) return {};
+  return requirements as Record<string, unknown>;
 }
 
 async function completePaymentFromReference(reference: string, userId: string) {

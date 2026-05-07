@@ -1,9 +1,9 @@
 "use client";
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { otherDocumentServices, pricingCatalog, serviceLabels, states, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { engineCategories, newVehicleRegistrationCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehiclePaperRenewalCategories, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { serviceRequirements, type RequirementField } from "@/lib/service-requirements";
 import { formatNaira, splitPayment } from "@/lib/utils";
@@ -12,6 +12,7 @@ type ServiceType = keyof typeof serviceRequirements;
 type WizardStep = 0 | 1 | 2;
 type PaymentChoice = "FULL" | "UPFRONT_75";
 type BusyAction = "PAY_LATER" | "PAY" | "SAVE_EXIT" | null;
+type DeliveryMethod = "PHYSICAL_DELIVERY" | "SCAN_TO_ME" | "PICKUP_OFFICE";
 export type CachedFile = {
   name: string;
   size: number;
@@ -37,6 +38,12 @@ export type InitialServiceDraft = {
 const serviceTypes = Object.keys(serviceRequirements) as ServiceType[];
 const cacheKey = "DrivaDocs:new-service:draft";
 const maxFileSize = 5 * 1024 * 1024;
+const preferredPlateStates = [...newVehicleRegistrationLocations, "Others State"];
+const deliveryMethods: { value: DeliveryMethod; label: string }[] = [
+  { value: "PHYSICAL_DELIVERY", label: "Physical delivery" },
+  { value: "SCAN_TO_ME", label: "Scan to me (online)" },
+  { value: "PICKUP_OFFICE", label: "Pickup from our office" }
+];
 
 export function ServiceRequestForm({
   initialDraft,
@@ -63,14 +70,19 @@ export function ServiceRequestForm({
   const initialOtherDocumentValue = otherDocumentServices.includes(initialOtherDocument as (typeof otherDocumentServices)[number])
     ? initialOtherDocument
     : "";
-  const initialValues = {
+  const initialValues = useMemo(() => ({
     ...(initialDraft?.values || {}),
-    ...(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {})
-  };
+    ...(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {}),
+    ...(initialService === "NEW_VEHICLE_REGISTRATION" && initialState
+      ? preferredPlateStates.includes(initialState)
+        ? { preferredStatePlate: initialState }
+        : { preferredStatePlate: "Others State", otherPreferredStatePlate: initialState }
+      : {})
+  }), [initialDraft?.values, initialOtherDocumentValue, initialService, initialState]);
   const [step, setStep] = useState<WizardStep>(freshStart ? (initialService ? 1 : 0) : initialDraft?.step ?? (initialService ? 1 : 0));
   const [serviceType, setServiceType] = useState<ServiceType | "">(initialService);
   const [state, setState] = useState(initialDraft?.state || initialState || "Lagos");
-  const [vehicleType, setVehicleType] = useState(initialDraft?.vehicleType || initialVehicleType || "Car");
+  const [vehicleType, setVehicleType] = useState(initialDraft?.vehicleType || initialVehicleType || defaultVehicleTypeForService(initialService));
   const [values, setValues] = useState<Record<string, string>>(initialValues);
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [fileMeta, setFileMeta] = useState<Record<string, CachedFile>>(initialDraft?.fileMeta || {});
@@ -86,12 +98,60 @@ export function ServiceRequestForm({
   const allowExitRef = useRef(false);
 
   const requirements = serviceType ? serviceRequirements[serviceType] : [];
+  const effectiveEngineCategory = vehicleType === "Motorcycle" ? "Motorcycle" : values.engineCategory || engineCategories[0];
+  const effectivePricingState = serviceType === "NEW_VEHICLE_REGISTRATION" ? resolvePreferredPlate(values) : state;
+  const effectiveUsage = values.usage || "PRIVATE";
   const price = useMemo(() => {
     if (!serviceType) return undefined;
 
     if (serviceType === "OTHER_PERMIT") {
       return (
         prices.find((item) => item.serviceType === serviceType && item.serviceName === values.permitType) ??
+        prices.find((item) => item.serviceType === serviceType)
+      );
+    }
+
+    if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+      return (
+        prices.find(
+          (item) =>
+            item.serviceType === serviceType &&
+            item.vehicleType === vehicleType &&
+            item.state === effectivePricingState &&
+            item.usage === effectiveUsage
+        ) ??
+        prices.find(
+          (item) =>
+            item.serviceType === serviceType &&
+            item.vehicleType === vehicleType &&
+            item.state === effectivePricingState &&
+            item.usage === "PRIVATE/COMMERCIAL"
+        ) ??
+        prices.find(
+          (item) =>
+            item.serviceType === serviceType &&
+            item.vehicleType === vehicleType &&
+            item.state === effectivePricingState &&
+            !item.usage
+        ) ??
+        prices.find(
+          (item) =>
+            item.serviceType === serviceType &&
+            item.vehicleType === vehicleType &&
+            (!item.engineCategory || item.engineCategory === effectiveEngineCategory) &&
+            !item.state
+        ) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
+        prices.find((item) => item.serviceType === serviceType)
+      );
+    }
+
+    if (serviceType === "VEHICLE_PAPER_RENEWAL") {
+      return (
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && !item.engineCategory && !item.usage && !item.state) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state && !item.engineCategory && !item.usage) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state) ??
+        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
         prices.find((item) => item.serviceType === serviceType)
       );
     }
@@ -104,10 +164,22 @@ export function ServiceRequestForm({
           (!item.state || item.state === state)
       ) ?? prices.find((item) => item.serviceType === serviceType)
     );
-  }, [prices, serviceType, state, values.permitType, vehicleType]);
+  }, [effectiveEngineCategory, effectivePricingState, effectiveUsage, prices, serviceType, state, values.permitType, vehicleType]);
 
-  const delivery = prices.find((item) => item.serviceType === "DELIVERY" && item.state === state);
-  const total = (price?.amount || 0) + (delivery?.amount || 0);
+  const deliveryMethod = resolveDeliveryMethod(values);
+  const deliveryOptions = useMemo(() => deliveryOptionsForState(prices, state), [prices, state]);
+  const requestedDeliveryLocation = values.deliveryLocation || "";
+  const deliveryLocation = deliveryOptions.some((item) => item.location === requestedDeliveryLocation)
+    ? requestedDeliveryLocation
+    : deliveryOptions[0]?.location || state;
+  const delivery = useMemo(
+    () =>
+      prices.find((item) => item.serviceType === "DELIVERY" && item.state === state && item.location === deliveryLocation) ??
+      prices.find((item) => item.serviceType === "DELIVERY" && item.state === state),
+    [deliveryLocation, prices, state]
+  );
+  const deliveryFee = deliveryMethod === "PHYSICAL_DELIVERY" ? delivery?.amount || 0 : 0;
+  const total = (price?.amount || 0) + deliveryFee;
   const split = splitPayment(total);
   const amountToPay = paymentChoice === "FULL" ? total : split.upfront;
   const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
@@ -117,12 +189,12 @@ export function ServiceRequestForm({
       Object.keys(fileMeta).length ||
       requestId
   );
-  function saveDraft(nextStep = step) {
+  const saveDraft = useCallback((nextStep = step) => {
     window.localStorage.setItem(
       cacheKey,
       JSON.stringify({ requestId, serviceType, state, vehicleType, values, fileMeta, paymentChoice, step: nextStep })
     );
-  }
+  }, [fileMeta, paymentChoice, requestId, serviceType, state, step, values, vehicleType]);
 
   useEffect(() => {
     try {
@@ -131,8 +203,8 @@ export function ServiceRequestForm({
         setStep(initialService ? 1 : 0);
         setServiceType(initialService);
         setState(initialState || "Lagos");
-        setVehicleType(initialVehicleType || "Car");
-        setValues(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {});
+        setVehicleType(initialVehicleType || defaultVehicleTypeForService(initialService));
+        setValues(initialValues);
         setFiles({});
         setFileMeta({});
         setPaymentChoice("UPFRONT_75");
@@ -145,10 +217,15 @@ export function ServiceRequestForm({
         setServiceType(initialDraft.serviceType || "");
         setStep(initialDraft.step ?? 2);
         setState(initialDraft.state || initialState || "Lagos");
-        setVehicleType(initialDraft.vehicleType || initialVehicleType || "Car");
+        setVehicleType(initialDraft.vehicleType || initialVehicleType || defaultVehicleTypeForService(initialDraft.serviceType || ""));
         setValues({
           ...(initialDraft.values || {}),
-          ...(initialDraft.serviceType === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {})
+          ...(initialDraft.serviceType === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {}),
+          ...(initialDraft.serviceType === "NEW_VEHICLE_REGISTRATION" && initialState && !initialDraft.values?.preferredStatePlate
+            ? preferredPlateStates.includes(initialState)
+              ? { preferredStatePlate: initialState }
+              : { preferredStatePlate: "Others State", otherPreferredStatePlate: initialState }
+            : {})
         });
         setFileMeta(initialDraft.fileMeta || {});
         return;
@@ -176,10 +253,15 @@ export function ServiceRequestForm({
           setStep(cached.step ?? 1);
         }
         setState(initialState || cached.state || "Lagos");
-        setVehicleType(initialVehicleType || cached.vehicleType || "Car");
+        setVehicleType(initialVehicleType || cached.vehicleType || defaultVehicleTypeForService(initialService));
         setValues({
           ...(cached.values || {}),
-          ...(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {})
+          ...(initialService === "OTHER_PERMIT" && initialOtherDocumentValue ? { permitType: initialOtherDocumentValue } : {}),
+          ...(initialService === "NEW_VEHICLE_REGISTRATION" && initialState && !cached.values?.preferredStatePlate
+            ? preferredPlateStates.includes(initialState)
+              ? { preferredStatePlate: initialState }
+              : { preferredStatePlate: "Others State", otherPreferredStatePlate: initialState }
+            : {})
         });
         setFileMeta(cached.fileMeta || {});
         setPaymentChoice(cached.paymentChoice || "UPFRONT_75");
@@ -191,12 +273,12 @@ export function ServiceRequestForm({
     } finally {
       setHydrated(true);
     }
-  }, [freshStart, initialDraft, initialOtherDocumentValue, initialService, initialState, initialVehicleType]);
+  }, [freshStart, initialDraft, initialOtherDocumentValue, initialService, initialState, initialValues, initialVehicleType]);
 
   useEffect(() => {
     if (!hydrated) return;
     saveDraft(step);
-  }, [fileMeta, hydrated, paymentChoice, requestId, serviceType, state, step, values, vehicleType]);
+  }, [fileMeta, hydrated, paymentChoice, requestId, saveDraft, serviceType, state, step, values, vehicleType]);
 
   useEffect(() => {
     function canWarnOnExit() {
@@ -233,9 +315,13 @@ export function ServiceRequestForm({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("click", handleDocumentClick, true);
     };
-  }, [hasDraftData, hydrated, success, step, serviceType, state, vehicleType, values, fileMeta, paymentChoice]);
+  }, [fileMeta, hasDraftData, hydrated, paymentChoice, saveDraft, serviceType, state, step, success, values, vehicleType]);
 
-  const canContinue = step === 0 ? Boolean(serviceType) : step === 1 ? requirementsComplete(requirements, values, files, fileMeta) : deliveryComplete(values);
+  const canContinue = step === 0
+    ? Boolean(serviceType)
+    : step === 1
+      ? requirementsComplete(requirements, values, files, fileMeta) && preferredPlateComplete(serviceType, values)
+      : deliveryComplete(values);
 
   function updateValue(name: string, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -243,6 +329,7 @@ export function ServiceRequestForm({
 
   function selectService(value: string) {
     setServiceType(value as ServiceType);
+    setVehicleType(defaultVehicleTypeForService(value as ServiceType));
     setStatus("");
     setReviewOpen(false);
     if (value !== "OTHER_PERMIT") {
@@ -342,6 +429,13 @@ export function ServiceRequestForm({
     try {
       const documents = await uploadDocuments();
       const requirementPayload = buildRequirementPayload(requirements, values, fileMeta, deliveryPeriod, vehicleType);
+      if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+        requirementPayload.engineCategory = effectiveEngineCategory;
+        requirementPayload.usage = effectiveUsage;
+      }
+      if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+        requirementPayload.preferredStatePlate = resolvePreferredPlate(values);
+      }
 
       const response = await fetch("/api/service-requests", {
         method: "POST",
@@ -355,17 +449,12 @@ export function ServiceRequestForm({
           requirements: requirementPayload,
           documents,
           estimateSubtotal: price?.amount || 0,
-          deliveryFee: delivery?.amount || 0,
+          deliveryFee,
           totalAmount: total,
           upfrontAmount: split.upfront,
           balanceAmount: split.balance,
           submissionMode: mode,
-          deliveryAddress: {
-            phone: values.deliveryPhone,
-            addressLine: values.deliveryAddress,
-            city: values.city,
-            state
-          }
+          deliveryAddress: buildDeliveryAddressPayload(values, state, deliveryLocation)
         })
       });
 
@@ -420,6 +509,13 @@ export function ServiceRequestForm({
     try {
       const documents = await uploadDocuments();
       const requirementPayload = buildRequirementPayload(requirements, values, fileMeta, deliveryPeriod, vehicleType);
+      if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+        requirementPayload.engineCategory = effectiveEngineCategory;
+        requirementPayload.usage = effectiveUsage;
+      }
+      if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+        requirementPayload.preferredStatePlate = resolvePreferredPlate(values);
+      }
       const response = await fetch("/api/service-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -432,19 +528,12 @@ export function ServiceRequestForm({
           requirements: requirementPayload,
           documents,
           estimateSubtotal: price?.amount || 0,
-          deliveryFee: delivery?.amount || 0,
+          deliveryFee,
           totalAmount: total,
           upfrontAmount: split.upfront,
           balanceAmount: split.balance,
           submissionMode: "SAVE",
-          deliveryAddress: deliveryComplete(values)
-            ? {
-                phone: values.deliveryPhone,
-                addressLine: values.deliveryAddress,
-                city: values.city,
-                state
-              }
-            : undefined
+          deliveryAddress: deliveryComplete(values) ? buildDeliveryAddressPayload(values, state, deliveryLocation) : undefined
         })
       });
 
@@ -503,8 +592,44 @@ export function ServiceRequestForm({
               label="Vehicle type"
               value={vehicleType}
               onChange={setVehicleType}
-              options={vehicleTypes.map((item) => ({ value: item, label: item }))}
+              options={vehicleOptionsForService(serviceType).map((item) => ({ value: item, label: item }))}
             />
+          ) : null}
+          {serviceType === "NEW_VEHICLE_REGISTRATION" ? (
+            <>
+              <Select
+                label="Private or commercial"
+                value={values.usage || "PRIVATE"}
+                onChange={(value) => updateValue("usage", value)}
+                options={usageTypes.map((item) => ({ value: item, label: item === "PRIVATE" ? "Private" : "Commercial" }))}
+              />
+              {vehicleType !== "Motorcycle" && !(newVehicleRegistrationCategories as readonly string[]).includes(vehicleType) ? (
+                <Select
+                  label="Engine/category"
+                  value={values.engineCategory || engineCategories[0]}
+                  onChange={(value) => updateValue("engineCategory", value)}
+                  options={engineCategories.filter((item) => item !== "Motorcycle").map((item) => ({ value: item, label: item }))}
+                />
+              ) : null}
+              <Select
+                label="Preferred state plate"
+                value={values.preferredStatePlate || "Lagos"}
+                onChange={(value) => {
+                  updateValue("preferredStatePlate", value);
+                  if (value !== "Others State") updateValue("otherPreferredStatePlate", "");
+                }}
+                options={preferredPlateStates.map((item) => ({ value: item, label: item }))}
+              />
+              {values.preferredStatePlate === "Others State" ? (
+                <Input
+                  name="otherPreferredStatePlate"
+                  label="Other preferred state"
+                  value={values.otherPreferredStatePlate || ""}
+                  onChange={updateValue}
+                  required
+                />
+              ) : null}
+            </>
           ) : null}
           {requirements.map((field) => (
             <RequirementControl
@@ -522,19 +647,57 @@ export function ServiceRequestForm({
 
       {step === 2 && serviceType ? (
         <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
-          <Select label="State to deliver to" value={state} onChange={setState} options={states.map((item) => ({ value: item, label: item }))} />
-          <Input name="city" label="City to deliver to" value={values.city || ""} onChange={updateValue} required />
-          <Input name="deliveryPhone" label="Recipient phone number" value={values.deliveryPhone || ""} onChange={updateValue} required />
-          <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75 md:col-span-2">
-            Delivery address
-            <textarea
-              value={values.deliveryAddress || ""}
-              onChange={(event) => updateValue("deliveryAddress", event.target.value)}
-              rows={3}
-              required
-              className="min-w-0 rounded border border-brand-900/15 p-3 focus-ring"
-            />
-          </label>
+          <Select
+            label="Delivery option"
+            value={deliveryMethod}
+            onChange={(value) => updateValue("deliveryMethod", value)}
+            options={deliveryMethods}
+          />
+          {deliveryMethod === "PHYSICAL_DELIVERY" ? (
+            <>
+              <Select
+                label="State to deliver to"
+                value={state}
+                onChange={(value) => {
+                  setState(value);
+                  setValues((current) => {
+                    const nextLocation = deliveryOptionsForState(prices, value)[0]?.location || value;
+                    return { ...current, deliveryLocation: nextLocation };
+                  });
+                }}
+                options={states.map((item) => ({ value: item, label: item }))}
+              />
+              {deliveryOptions.length ? (
+                <Select
+                  label="Delivery location"
+                  value={deliveryLocation}
+                  onChange={(value) => updateValue("deliveryLocation", value)}
+                  options={deliveryOptions.map((item) => ({
+                    value: item.location,
+                    label: `${item.location} - ${formatNaira(item.amount)}`
+                  }))}
+                />
+              ) : null}
+              <Input name="city" label="City to deliver to" value={values.city || ""} onChange={updateValue} required />
+              <Input name="deliveryPhone" label="Recipient phone number" value={values.deliveryPhone || ""} onChange={updateValue} required />
+              <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75 md:col-span-2">
+                Delivery address
+                <textarea
+                  value={values.deliveryAddress || ""}
+                  onChange={(event) => updateValue("deliveryAddress", event.target.value)}
+                  rows={3}
+                  required
+                  className="min-w-0 rounded border border-brand-900/15 p-3 focus-ring"
+                />
+              </label>
+            </>
+          ) : deliveryMethod === "SCAN_TO_ME" ? (
+            <Input name="onlineDeliveryContact" label="WhatsApp number or email" value={values.onlineDeliveryContact || ""} onChange={updateValue} required />
+          ) : (
+            <div className="rounded border border-road/35 bg-road/10 p-4 text-sm font-semibold leading-6 text-ink/72 md:col-span-2">
+              Delivery fee is removed. Our team will notify you when the document is ready for office pickup.
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -582,6 +745,10 @@ export function ServiceRequestForm({
           deliveryPhone={values.deliveryPhone || ""}
           deliveryCity={values.city || ""}
           deliveryAddress={values.deliveryAddress || ""}
+          deliveryMethod={deliveryMethod}
+          deliveryLocation={deliveryLocation}
+          onlineDeliveryContact={values.onlineDeliveryContact || ""}
+          deliveryFee={deliveryFee}
           documentCount={requirements.filter((field) => field.type === "file").length}
           onPaymentChoice={setPaymentChoice}
           onClose={() => setReviewOpen(false)}
@@ -802,6 +969,10 @@ function ReviewModal({
   deliveryPhone,
   deliveryCity,
   deliveryAddress,
+  deliveryMethod,
+  deliveryLocation,
+  onlineDeliveryContact,
+  deliveryFee,
   documentCount,
   onPaymentChoice,
   onClose,
@@ -822,6 +993,10 @@ function ReviewModal({
   deliveryPhone: string;
   deliveryCity: string;
   deliveryAddress: string;
+  deliveryMethod: DeliveryMethod;
+  deliveryLocation: string;
+  onlineDeliveryContact: string;
+  deliveryFee: number;
   documentCount: number;
   onPaymentChoice: (choice: PaymentChoice) => void;
   onClose: () => void;
@@ -840,6 +1015,7 @@ function ReviewModal({
         <h2 className="mt-2 break-words text-xl font-black sm:text-2xl">{serviceName}</h2>
         <div className="mt-5 grid gap-3 rounded bg-brand-50 p-4 text-sm">
           <RowLight label="Total estimate" value={formatNaira(total)} strong />
+          <RowLight label="Delivery fee" value={formatNaira(deliveryFee)} />
           <RowLight label="75% upfront" value={formatNaira(upfront)} />
           <RowLight label="25% balance" value={formatNaira(balance)} />
         </div>
@@ -860,10 +1036,17 @@ function ReviewModal({
             <div className="grid min-w-0 gap-3 border-t border-brand-900/10 p-4 text-sm sm:grid-cols-2">
               <RowLight label="State" value={state} />
               <RowLight label="Vehicle type" value={vehicleType} />
-              <RowLight label="City" value={deliveryCity} />
-              <RowLight label="Recipient phone" value={deliveryPhone} />
+              <RowLight label="Delivery option" value={deliveryMethodLabel(deliveryMethod)} />
+              {deliveryMethod === "PHYSICAL_DELIVERY" ? (
+                <>
+                  <RowLight label="Delivery location" value={deliveryLocation} />
+                  <RowLight label="City" value={deliveryCity} />
+                  <RowLight label="Recipient phone" value={deliveryPhone} />
+                </>
+              ) : null}
+              {deliveryMethod === "SCAN_TO_ME" ? <RowLight label="Online delivery contact" value={onlineDeliveryContact} /> : null}
               <RowLight label="Uploads needed" value={String(documentCount)} />
-              <RowLight label="Delivery address" value={deliveryAddress} />
+              <RowLight label="Delivery address" value={deliveryMethod === "PHYSICAL_DELIVERY" ? deliveryAddress : deliveryMethodLabel(deliveryMethod)} />
             </div>
           ) : null}
         </div>
@@ -1034,7 +1217,84 @@ function requirementsComplete(
 }
 
 function deliveryComplete(values: Record<string, string>) {
+  const method = resolveDeliveryMethod(values);
+  if (method === "SCAN_TO_ME") return Boolean(values.onlineDeliveryContact?.trim());
+  if (method === "PICKUP_OFFICE") return true;
   return ["deliveryPhone", "city", "deliveryAddress"].every((key) => Boolean(values[key]?.trim()));
+}
+
+function resolveDeliveryMethod(values: Record<string, string>): DeliveryMethod {
+  const value = values.deliveryMethod;
+  return value === "SCAN_TO_ME" || value === "PICKUP_OFFICE" ? value : "PHYSICAL_DELIVERY";
+}
+
+function deliveryMethodLabel(method: DeliveryMethod) {
+  return deliveryMethods.find((item) => item.value === method)?.label || "Physical delivery";
+}
+
+function buildDeliveryAddressPayload(values: Record<string, string>, state: string, selectedDeliveryLocation?: string) {
+  const method = resolveDeliveryMethod(values);
+  const deliveryLocation = selectedDeliveryLocation || values.deliveryLocation || state;
+  if (method === "SCAN_TO_ME") {
+    return {
+      label: "Online",
+      phone: values.onlineDeliveryContact || "Online delivery",
+      addressLine: "Scan to me (online)",
+      city: "Online",
+      state,
+      deliveryMethod: method
+    };
+  }
+  if (method === "PICKUP_OFFICE") {
+    return {
+      label: "Office pickup",
+      phone: "Office pickup",
+      addressLine: "Pickup from our office",
+      city: "Office pickup",
+      state,
+      deliveryMethod: method
+    };
+  }
+  return {
+    label: deliveryLocation,
+    phone: values.deliveryPhone,
+    addressLine: values.deliveryAddress,
+    city: values.city,
+    state,
+    deliveryMethod: method
+  };
+}
+
+function deliveryOptionsForState(prices: PricingItem[], state: string) {
+  return prices
+    .filter((item) => item.serviceType === "DELIVERY" && item.state === state)
+    .map((item) => ({
+      location: item.location || item.state || "Delivery",
+      amount: item.amount
+    }))
+    .filter((item, index, source) => source.findIndex((candidate) => candidate.location === item.location) === index);
+}
+
+function preferredPlateComplete(serviceType: ServiceType | "", values: Record<string, string>) {
+  if (serviceType !== "NEW_VEHICLE_REGISTRATION") return true;
+  const choice = values.preferredStatePlate || "Lagos";
+  return choice !== "Others State" || Boolean(values.otherPreferredStatePlate?.trim());
+}
+
+function resolvePreferredPlate(values: Record<string, string>) {
+  return values.preferredStatePlate === "Others State"
+    ? values.otherPreferredStatePlate?.trim() || "Others State"
+    : values.preferredStatePlate || "Lagos";
+}
+
+function vehicleOptionsForService(serviceType: ServiceType | "") {
+  if (serviceType === "NEW_VEHICLE_REGISTRATION") return newVehicleRegistrationCategories;
+  if (serviceType === "VEHICLE_PAPER_RENEWAL") return vehiclePaperRenewalCategories;
+  return vehicleTypes;
+}
+
+function defaultVehicleTypeForService(serviceType: ServiceType | "") {
+  return vehicleOptionsForService(serviceType)[0] || "Car";
 }
 
 function addHidden(form: HTMLFormElement, name: string, value: string) {

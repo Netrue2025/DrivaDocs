@@ -108,9 +108,19 @@ export default async function NewRequestPage({
       }
 
       if (request.deliveryAddress) {
-        values.city = request.deliveryAddress.city;
-        values.deliveryPhone = request.deliveryAddress.phone;
-        values.deliveryAddress = request.deliveryAddress.addressLine;
+        values.deliveryMethod = request.deliveryAddress.deliveryMethod || "PHYSICAL_DELIVERY";
+        values.deliveryLocation = request.deliveryAddress.label || "";
+        if (request.deliveryAddress.deliveryMethod === "SCAN_TO_ME") {
+          values.onlineDeliveryContact = request.deliveryAddress.phone;
+        } else if (request.deliveryAddress.deliveryMethod === "PICKUP_OFFICE") {
+          values.deliveryPhone = "";
+          values.city = "";
+          values.deliveryAddress = "";
+        } else {
+          values.city = request.deliveryAddress.city;
+          values.deliveryPhone = request.deliveryAddress.phone;
+          values.deliveryAddress = request.deliveryAddress.addressLine;
+        }
       }
 
       initialDraft = {

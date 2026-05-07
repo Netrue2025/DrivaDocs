@@ -13,6 +13,7 @@ import {
   Truck
 } from "lucide-react";
 import Image from "next/image";
+import { HomeHeroMedia } from "@/components/home-hero-media";
 import { ButtonLink } from "@/components/ui/button-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ScrollReveal } from "@/components/scroll-reveal";
@@ -126,24 +127,39 @@ const partners = [
   }
 ];
 
+const homeContentTimeoutMs = 1200;
+
 async function getHomeContent() {
-  const [managedFaqs, managedTestimonials] = await Promise.all([
-    prisma.faqItem.findMany({
-      where: { published: true },
-      orderBy: [{ sortOrder: "asc" }, { question: "asc" }],
-      select: { question: true, answer: true }
-    }).catch(() => []),
-    prisma.testimonial.findMany({
-      where: { published: true },
-      orderBy: { createdAt: "desc" },
-      select: { name: true, role: true, company: true, quote: true, rating: true }
-    }).catch(() => [])
-  ]);
+  const [managedFaqs, managedTestimonials] = await withTimeout(
+    Promise.all([
+      prisma.faqItem.findMany({
+        where: { published: true },
+        orderBy: [{ sortOrder: "asc" }, { question: "asc" }],
+        select: { question: true, answer: true }
+      }).catch(() => []),
+      prisma.testimonial.findMany({
+        where: { published: true },
+        orderBy: { createdAt: "desc" },
+        select: { name: true, role: true, company: true, quote: true, rating: true }
+      }).catch(() => [])
+    ]),
+    [[], []] as const,
+    homeContentTimeoutMs
+  );
 
   return {
     faqs: managedFaqs.length ? managedFaqs : fallbackFaqs,
     testimonials: managedTestimonials.length ? managedTestimonials : fallbackTestimonials
   };
+}
+
+function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number) {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallback), timeoutMs);
+    })
+  ]);
 }
 
 export default async function HomePage() {
@@ -152,14 +168,7 @@ export default async function HomePage() {
   return (
     <>
       <section className="relative min-h-[620px] overflow-hidden bg-ink text-white">
-        <Image
-          src="/images/drivadocs-hero.png"
-          alt="DrivaDocs vehicle documentation and home office delivery service"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-center"
-        />
+        <HomeHeroMedia />
         <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/78 to-ink/12" />
         <div className="absolute inset-0 bg-gradient-to-t from-ink/38 via-transparent to-transparent" />
         <div className="relative mx-auto flex min-h-[620px] max-w-7xl items-center px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
@@ -176,7 +185,7 @@ export default async function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <ButtonLink href="/signup" variant="primary">
-                Get Started <ArrowRight className="ml-2" size={18} />
+                Sign up, it&apos;s free <ArrowRight className="ml-2" size={18} />
               </ButtonLink>
               <ButtonLink href="/pricing" variant="secondary">
                 Check Pricing
@@ -321,7 +330,7 @@ export default async function HomePage() {
                 className="testimonial-marquee-card rounded border border-brand-900/10 bg-white p-5"
                 style={{ animationDelay: `${index * -4.33}s` }}
               >
-                <p className="leading-7 text-ink/70">"{item.quote}"</p>
+                <p className="leading-7 text-ink/70">&ldquo;{item.quote}&rdquo;</p>
                 <p className="mt-5 font-black">{item.name}</p>
                 <p className="text-sm text-brand-700">{item.role}</p>
               </article>
@@ -362,7 +371,7 @@ export default async function HomePage() {
             <p className="mt-2 text-white/70">Get a transparent estimate and start your request in minutes.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <ButtonLink href="/signup" variant="secondary">Get Started</ButtonLink>
+            <ButtonLink href="/signup" variant="secondary">Sign up, it&apos;s free</ButtonLink>
             <ButtonLink href="/contact" variant="ghost">
               <Headphones className="mr-2" size={18} /> Support
             </ButtonLink>

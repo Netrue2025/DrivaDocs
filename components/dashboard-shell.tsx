@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
+  Building2,
   ClipboardList,
   FilePlus2,
   LayoutDashboard,
@@ -66,8 +68,17 @@ export function DashboardShell({
   description?: string;
 }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [activeGroup, setActiveGroup] = useState<MobileGroupKey | null>(null);
   const [pendingHref, setPendingHref] = useState("");
+  const isBusiness = session?.user.accountType === "BUSINESS";
+  const navItems = isBusiness
+    ? [
+        ...desktopItems.slice(0, 2),
+        { href: "/dashboard/fleets", label: "Fleets" },
+        ...desktopItems.slice(2)
+      ]
+    : desktopItems;
 
   useEffect(() => {
     setActiveGroup(null);
@@ -79,7 +90,7 @@ export function DashboardShell({
       <section className="mx-auto grid w-full max-w-7xl gap-5 px-3 py-5 pb-28 sm:px-6 sm:py-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6 lg:px-8 lg:pb-8">
         <aside className="hidden h-fit min-w-0 rounded border border-brand-900/10 bg-white p-3 shadow-sm lg:sticky lg:top-24 lg:block">
           <nav className="grid gap-1">
-            {desktopItems.map((item) => {
+            {navItems.map((item) => {
               const active = isActivePath(pathname, item.href);
               return (
                 <Link
@@ -114,6 +125,7 @@ export function DashboardShell({
         onGroup={setActiveGroup}
         pendingHref={pendingHref}
         onPendingHref={setPendingHref}
+        isBusiness={isBusiness}
       />
     </>
   );
@@ -124,15 +136,17 @@ function MobileDashboardNav({
   activeGroup,
   onGroup,
   pendingHref,
-  onPendingHref
+  onPendingHref,
+  isBusiness
 }: {
   pathname: string;
   activeGroup: MobileGroupKey | null;
   onGroup: (group: MobileGroupKey | null) => void;
   pendingHref: string;
   onPendingHref: (href: string) => void;
+  isBusiness: boolean;
 }) {
-  const activePanel = activeGroup ? mobileGroups[activeGroup] : null;
+  const activePanel = activeGroup ? getMobileGroup(activeGroup, isBusiness) : null;
   const routeServiceActive = !activeGroup && isServicePath(pathname);
   const routeToolActive = !activeGroup && isToolPath(pathname);
   const routeSettingsActive = !activeGroup && isSettingsPath(pathname);
@@ -243,7 +257,7 @@ function isActivePath(pathname: string, href: string) {
 }
 
 function isServicePath(pathname: string) {
-  return pathname.startsWith("/dashboard/requests");
+  return pathname.startsWith("/dashboard/requests") || pathname.startsWith("/dashboard/fleets");
 }
 
 function isToolPath(pathname: string) {
@@ -252,4 +266,15 @@ function isToolPath(pathname: string) {
 
 function isSettingsPath(pathname: string) {
   return pathname.startsWith("/dashboard/profile");
+}
+
+function getMobileGroup(group: MobileGroupKey, isBusiness: boolean): MobileGroup {
+  if (group !== "services" || !isBusiness) return mobileGroups[group];
+  return {
+    ...mobileGroups.services,
+    links: [
+      ...mobileGroups.services.links,
+      { href: "/dashboard/fleets", label: "Fleets", icon: Building2 }
+    ]
+  };
 }

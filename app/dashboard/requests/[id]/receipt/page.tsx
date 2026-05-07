@@ -28,6 +28,7 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
   const receiptNo = latestPayment?.receiptNo || `RCT-${request.requestCode}`;
   const requirements = asRecord(request.requirements);
   const serviceAppliedFor = typeof requirements.permitType === "string" && requirements.permitType.trim() ? requirements.permitType : request.title;
+  const fleetItems = normalizeFleetItems(requirements.items);
 
   return (
     <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:py-0">
@@ -64,12 +65,34 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
 
           <ReceiptBlock title="Delivery">
             <div className="grid gap-3 sm:grid-cols-2">
+              <Line label="Option" value={formatDeliveryMethod(request.deliveryAddress?.deliveryMethod)} />
               <Line label="State" value={request.deliveryAddress?.state || request.state || "Not provided"} />
               <Line label="City" value={request.deliveryAddress?.city || "Not provided"} />
               <Line label="Phone" value={request.deliveryAddress?.phone || "Not provided"} />
               <Line label="Address" value={request.deliveryAddress?.addressLine || "Not provided"} />
             </div>
           </ReceiptBlock>
+
+          {fleetItems.length ? (
+            <ReceiptBlock title="Fleet items">
+              <div className="grid gap-2">
+                {fleetItems.map((item, index) => (
+                  <div key={item.id} className="rounded bg-brand-50 p-3 text-sm">
+                    <p className="font-black">#{index + 1} {item.label}</p>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {item.registrationNo ? <Line label="Registration no" value={item.registrationNo} /> : null}
+                      {item.vehicleType ? <Line label="Vehicle type" value={item.vehicleType} /> : null}
+                      {item.phone ? <Line label="Phone" value={item.phone} /> : null}
+                      {item.licenseNo ? <Line label="License no" value={item.licenseNo} /> : null}
+                      {item.shortDetails.map(([key, value]) => (
+                        <Line key={`${item.id}-${key}`} label={formatFieldLabel(key)} value={value} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ReceiptBlock>
+          ) : null}
 
           <ReceiptBlock title="Payment breakdown">
             <div className="grid gap-2">
@@ -133,4 +156,60 @@ function MoneyLine({ label, value, strong }: { label: string; value: number; str
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function normalizeFleetItems(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.reduce<{
+    id: string;
+    label: string;
+    registrationNo: string;
+    vehicleType: string;
+    phone: string;
+    licenseNo: string;
+    shortDetails: [string, string][];
+  }[]>((items, item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return items;
+    const row = item as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id : "";
+    if (!id) return items;
+    const details = asStringRecord(row.details);
+    items.push({
+      id,
+      label: typeof row.label === "string" ? row.label : id,
+      registrationNo: typeof row.registrationNo === "string" ? row.registrationNo : "",
+      vehicleType: typeof row.vehicleType === "string" ? row.vehicleType : "",
+      phone: typeof row.phone === "string" ? row.phone : "",
+      licenseNo: typeof row.licenseNo === "string" ? row.licenseNo : "",
+      shortDetails: Object.entries(details).filter(([, value]) => Boolean(value)).slice(0, 4)
+    });
+    return items;
+  }, []);
+}
+
+function asStringRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.entries(value).reduce<Record<string, string>>((record, [key, item]) => {
+    if (typeof item === "string") record[key] = item;
+    return record;
+  }, {});
+}
+
+function formatFieldLabel(key: string) {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function formatDeliveryMethod(method?: string) {
+  const labels: Record<string, string> = {
+    PHYSICAL_DELIVERY: "Physical delivery",
+    SCAN_TO_ME: "Scan to me (online)",
+    PICKUP_OFFICE: "Pickup from our office",
+    HOME_OFFICE: "Physical delivery"
+  };
+  return method ? labels[method] || formatFieldLabel(method) : "Physical delivery";
 }

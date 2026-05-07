@@ -49,52 +49,196 @@ export const otherDocumentServices = [
 
 export const legacyOtherDocumentServices = ["Local government papers", "Signage"];
 
+export const newVehicleRegistrationLocations = ["Oyo", "Lagos", "Abuja"] as const;
+
+export const newVehicleRegistrationCategories = [
+  "MOTORCYCLE",
+  "TRICYCLE",
+  "SALOON CAR (1.0 - 2.0 L)",
+  "SALOON CAR (2.1 - 3.0 L)",
+  "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0 L)",
+  "BUS/COASTER BUS (3.1 - 12.0 L)",
+  "LUXURY BUS (3.1 - 12.0 L)",
+  "LORRY/TIPPER/TRACTOR (3.1 - 12.0 L)",
+  "TANKER/TRUCK (3.1 - 12.0 L)",
+  "ARTICULATED TRAILER (3.1 - 12.0 L)"
+] as const;
+
+const newRegistrationPricingMatrix: Array<{
+  vehicleType: (typeof newVehicleRegistrationCategories)[number];
+  usage?: "PRIVATE" | "COMMERCIAL" | "PRIVATE/COMMERCIAL";
+  prices: Partial<Record<(typeof newVehicleRegistrationLocations)[number], number>>;
+}> = [
+  { vehicleType: "MOTORCYCLE", usage: "PRIVATE/COMMERCIAL", prices: { Oyo: 41000, Lagos: 41000, Abuja: 41000 } },
+  { vehicleType: "TRICYCLE", usage: "PRIVATE/COMMERCIAL", prices: { Oyo: 42000, Lagos: 42000, Abuja: 42000 } },
+  { vehicleType: "SALOON CAR (1.0 - 2.0 L)", usage: "PRIVATE", prices: { Oyo: 85000, Lagos: 95000, Abuja: 105000 } },
+  { vehicleType: "SALOON CAR (1.0 - 2.0 L)", usage: "COMMERCIAL", prices: { Oyo: 92000, Lagos: 102000, Abuja: 112000 } },
+  { vehicleType: "SALOON CAR (2.1 - 3.0 L)", usage: "PRIVATE", prices: { Oyo: 86000, Lagos: 96000, Abuja: 106000 } },
+  { vehicleType: "SALOON CAR (2.1 - 3.0 L)", usage: "COMMERCIAL", prices: { Oyo: 93000, Lagos: 103000, Abuja: 113000 } },
+  { vehicleType: "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0 L)", usage: "PRIVATE", prices: { Oyo: 86500, Lagos: 98500, Abuja: 108500 } },
+  { vehicleType: "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0 L)", usage: "COMMERCIAL", prices: { Oyo: 96500, Lagos: 108500, Abuja: 109000 } },
+  { vehicleType: "BUS/COASTER BUS (3.1 - 12.0 L)", usage: "PRIVATE", prices: { Oyo: 97000, Lagos: 110500, Abuja: 112000 } },
+  { vehicleType: "BUS/COASTER BUS (3.1 - 12.0 L)", usage: "COMMERCIAL", prices: { Oyo: 100000, Lagos: 113500, Abuja: 114000 } },
+  { vehicleType: "LUXURY BUS (3.1 - 12.0 L)", prices: { Oyo: 102000, Lagos: 115000, Abuja: 118000 } },
+  { vehicleType: "LORRY/TIPPER/TRACTOR (3.1 - 12.0 L)", prices: { Oyo: 110000, Lagos: 125000, Abuja: 125000 } },
+  { vehicleType: "TANKER/TRUCK (3.1 - 12.0 L)", prices: { Oyo: 115000, Lagos: 205000, Abuja: 155000 } },
+  { vehicleType: "ARTICULATED TRAILER (3.1 - 12.0 L)", prices: { Oyo: 125000, Lagos: 215000, Abuja: 175000 } }
+];
+
+export const newVehicleRegistrationPricing = newRegistrationPricingMatrix.flatMap((row) =>
+  newVehicleRegistrationLocations.map((state) => ({
+    serviceType: "NEW_VEHICLE_REGISTRATION" as const,
+    serviceName: serviceLabels.NEW_VEHICLE_REGISTRATION,
+    vehicleType: row.vehicleType,
+    usage: row.usage,
+    state,
+    amount: row.prices[state] || 0
+  }))
+);
+
+export const vehiclePaperRenewalCategories = [
+  "MOTORCYCLE",
+  "TRICYCLE",
+  "SALOON CAR (1.6 - 2.0L) PRIVATE",
+  "SALOON CAR (1.6 - 2.0L) COMMERCIAL",
+  "SALOON CAR (2.1 - 3.0L) PRIVATE",
+  "SALOON CAR (2.1 - 3.0L) COMMERCIAL",
+  "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) PRIVATE",
+  "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) COMMERCIAL",
+  "BUS/COASTER BUS (3.1 - 12.0L) PRIVATE",
+  "BUS/COASTER BUS (3.1 - 12.0L) COMMERCIAL",
+  "LUXURY BUS (3.1 - 12.0L)",
+  "LORRY/TIPPER/TRACTOR (3.1 - 12.0L)",
+  "TANKER/TRUCK (3.1 - 12.0L)",
+  "ARTICULATED TRAILER (3.1 - 12.0L)"
+] as const;
+
+export const vehiclePaperRenewalBreakdowns: Record<(typeof vehiclePaperRenewalCategories)[number], { label: string; amount: number }[]> = {
+  MOTORCYCLE: [
+    { label: "Vehicle license", amount: 2000 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 3500 },
+    { label: "Third party insurance", amount: 5000 },
+    { label: "Hackney permit", amount: 500 },
+    { label: "Rider's permit", amount: 1000 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  TRICYCLE: [
+    { label: "Vehicle license", amount: 2000 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 3500 },
+    { label: "Third party insurance", amount: 5000 },
+    { label: "Hackney permit", amount: 1500 },
+    { label: "Rider's permit", amount: 1000 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "SALOON CAR (1.6 - 2.0L) PRIVATE": [
+    { label: "Vehicle license", amount: 2500 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 7900 },
+    { label: "Third party insurance", amount: 15000 },
+    { label: "Hackney permit", amount: 1500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "SALOON CAR (1.6 - 2.0L) COMMERCIAL": [
+    { label: "Vehicle license", amount: 2500 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 6900 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 1500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "SALOON CAR (2.1 - 3.0L) PRIVATE": [
+    { label: "Vehicle license", amount: 3000 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 7500 },
+    { label: "Third party insurance", amount: 15000 },
+    { label: "Hackney permit", amount: 2500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "SALOON CAR (2.1 - 3.0L) COMMERCIAL": [
+    { label: "Vehicle license", amount: 3000 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 7500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 2500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) PRIVATE": [
+    { label: "Vehicle license", amount: 3600 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 8500 },
+    { label: "Third party insurance", amount: 15000 },
+    { label: "Hackney permit", amount: 2500 }
+  ],
+  "SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) COMMERCIAL": [
+    { label: "Vehicle license", amount: 3600 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 8500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 2500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "BUS/COASTER BUS (3.1 - 12.0L) PRIVATE": [
+    { label: "Vehicle license", amount: 3600 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 10500 },
+    { label: "Third party insurance", amount: 15000 },
+    { label: "Hackney permit", amount: 2500 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "BUS/COASTER BUS (3.1 - 12.0L) COMMERCIAL": [
+    { label: "Vehicle license", amount: 3600 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 10500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 3600 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "LUXURY BUS (3.1 - 12.0L)": [
+    { label: "Vehicle license", amount: 3600 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 11000 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 3600 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "LORRY/TIPPER/TRACTOR (3.1 - 12.0L)": [
+    { label: "Vehicle license", amount: 4300 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 13500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 3600 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "TANKER/TRUCK (3.1 - 12.0L)": [
+    { label: "Vehicle license", amount: 6800 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 13500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 3600 },
+    { label: "Proof of ownership", amount: 1500 }
+  ],
+  "ARTICULATED TRAILER (3.1 - 12.0L)": [
+    { label: "Vehicle license", amount: 9300 },
+    { label: "Radio license", amount: 1000 },
+    { label: "Road worthiness", amount: 14500 },
+    { label: "Third party insurance", amount: 20000 },
+    { label: "Hackney permit", amount: 3600 },
+    { label: "Proof of ownership", amount: 1500 }
+  ]
+};
+
+export const vehiclePaperRenewalPricing = vehiclePaperRenewalCategories.map((vehicleType) => ({
+  serviceType: "VEHICLE_PAPER_RENEWAL" as const,
+  serviceName: serviceLabels.VEHICLE_PAPER_RENEWAL,
+  vehicleType,
+  amount: vehiclePaperRenewalBreakdowns[vehicleType].reduce((sum, item) => sum + item.amount, 0)
+}));
+
 export const pricingCatalog: PricingItem[] = [
-  {
-    serviceType: "VEHICLE_PAPER_RENEWAL",
-    serviceName: serviceLabels.VEHICLE_PAPER_RENEWAL,
-    vehicleType: "Car",
-    engineCategory: "1.6L - 2.0L",
-    usage: "PRIVATE",
-    state: "Lagos",
-    amount: 68000
-  },
-  {
-    serviceType: "VEHICLE_PAPER_RENEWAL",
-    serviceName: serviceLabels.VEHICLE_PAPER_RENEWAL,
-    vehicleType: "SUV",
-    engineCategory: "2.1L - 3.0L",
-    usage: "PRIVATE",
-    state: "Lagos",
-    amount: 82000
-  },
-  {
-    serviceType: "VEHICLE_PAPER_RENEWAL",
-    serviceName: serviceLabels.VEHICLE_PAPER_RENEWAL,
-    vehicleType: "Bus",
-    engineCategory: "Commercial",
-    usage: "COMMERCIAL",
-    state: "Lagos",
-    amount: 95000
-  },
-  {
-    serviceType: "NEW_VEHICLE_REGISTRATION",
-    serviceName: serviceLabels.NEW_VEHICLE_REGISTRATION,
-    vehicleType: "Car",
-    engineCategory: "1.6L - 2.0L",
-    usage: "PRIVATE",
-    state: "Lagos",
-    amount: 245000
-  },
-  {
-    serviceType: "NEW_VEHICLE_REGISTRATION",
-    serviceName: serviceLabels.NEW_VEHICLE_REGISTRATION,
-    vehicleType: "SUV",
-    engineCategory: "2.1L - 3.0L",
-    usage: "PRIVATE",
-    state: "Lagos",
-    amount: 295000
-  },
+  ...vehiclePaperRenewalPricing,
+  ...newVehicleRegistrationPricing,
   {
     serviceType: "CHANGE_OF_OWNERSHIP",
     serviceName: serviceLabels.CHANGE_OF_OWNERSHIP,
@@ -215,13 +359,20 @@ export const pricingCatalog: PricingItem[] = [
     state: "Oyo",
     location: "Ibadan",
     amount: 7000
+  },
+  {
+    serviceType: "DELIVERY",
+    serviceName: "Abuja delivery",
+    state: "Abuja",
+    location: "Abuja",
+    amount: 10000
   }
 ];
 
-export const vehicleTypes = ["Car", "SUV", "Bus", "Van", "Motorcycle"];
-export const engineCategories = ["1.6L - 2.0L", "2.1L - 3.0L", "Commercial", "Motorcycle"];
+export const vehicleTypes = ["Car", "SUV", "Bus", "Pickup", "Lorry", "Truck", "Motorcycle"];
+export const engineCategories = ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L", "Motorcycle"];
 export const usageTypes = ["PRIVATE", "COMMERCIAL"];
-export const states = ["Lagos", "Oyo"];
+export const states = ["Lagos", "Oyo", "Abuja"];
 
 export function pricingKey(item: PricingKeyFields) {
   return [

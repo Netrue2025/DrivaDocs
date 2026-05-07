@@ -1,26 +1,13 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { toVehicleData, vehicleSchema } from "@/lib/fleet-records";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const vehicleSchema = z.object({
-  make: z.string().min(1),
-  model: z.string().min(1),
-  registrationNo: z.string().optional().or(z.literal("")),
-  chassisNo: z.string().optional().or(z.literal("")),
-  engineNo: z.string().optional().or(z.literal("")),
-  color: z.string().optional().or(z.literal("")),
-  vehicleType: z.string().min(1),
-  engineCategory: z.string().optional().or(z.literal("")),
-  usage: z.string().default("PRIVATE"),
-  licenseExpiry: z.string().optional().or(z.literal("")),
-  roadWorthinessExpiry: z.string().optional().or(z.literal("")),
-  insuranceExpiry: z.string().optional().or(z.literal(""))
-});
+const lockedStatuses = ["PROCESSING", "DOCUMENT_READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -28,24 +15,61 @@ export async function POST(request: Request) {
 
   const parsed = vehicleSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid vehicle" }, { status: 400 });
+  const businessAccount = session.user.accountType === "BUSINESS"
+    ? await prisma.businessAccount.findUnique({ where: { userId: session.user.id }, select: { id: true } })
+    : null;
 
-  const vehicle = await prisma.vehicle.create({
-    data: {
-      userId: session.user.id,
-      make: parsed.data.make,
-      model: parsed.data.model,
-      registrationNo: parsed.data.registrationNo || null,
-      chassisNo: parsed.data.chassisNo || null,
-      engineNo: parsed.data.engineNo || null,
-      color: parsed.data.color || null,
-      vehicleType: parsed.data.vehicleType,
-      engineCategory: parsed.data.engineCategory || null,
-      usage: parsed.data.usage,
-      licenseExpiry: parsed.data.licenseExpiry ? new Date(parsed.data.licenseExpiry) : null,
-      roadWorthinessExpiry: parsed.data.roadWorthinessExpiry ? new Date(parsed.data.roadWorthinessExpiry) : null,
-      insuranceExpiry: parsed.data.insuranceExpiry ? new Date(parsed.data.insuranceExpiry) : null
+  const data = parsed.data;
+  const duplicate = await findDuplicateVehicle(session.user.id, data);
+  if (duplicate && await isVehicleLocked(duplicate.id)) {
+    return NextResponse.json({ error: "This vehicle already exists and is under process." }, { status: 409 });
+  }
+  const vehicleData = toVehicleData(data, businessAccount?.id || null);
+  const vehicle = duplicate
+    ? await prisma.vehicle.update({
+        where: { id: duplicate.id },
+        data: vehicleData
+      })
+    : await prisma.vehicle.create({
+        data: {
+          userId: session.user.id,
+          ...vehicleData
+        }
+      });
+
+  if (businessAccount) {
+    const fleetSize = await prisma.vehicle.count({ where: { businessAccountId: businessAccount.id } });
+    await prisma.businessAccount.update({
+      where: { id: businessAccount.id },
+      data: { fleetSize }
+    }).catch(() => null);
+  }
+
+  return NextResponse.json(vehicle, { status: duplicate ? 200 : 201 });
+}
+
+async function findDuplicateVehicle(userId: string, data: typeof vehicleSchema._type) {
+  const or: Prisma.VehicleWhereInput[] = [];
+  if (data.registrationNo?.trim()) or.push({ registrationNo: { equals: data.registrationNo.trim(), mode: "insensitive" } });
+  if (data.chassisNo?.trim()) or.push({ chassisNo: { equals: data.chassisNo.trim(), mode: "insensitive" } });
+  if (data.engineNo?.trim()) or.push({ engineNo: { equals: data.engineNo.trim(), mode: "insensitive" } });
+  if (!or.length) return null;
+
+  return prisma.vehicle.findFirst({
+    where: {
+      userId,
+      OR: or
+    },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+async function isVehicleLocked(id: string) {
+  const count = await prisma.serviceRequest.count({
+    where: {
+      vehicleId: id,
+      status: { in: lockedStatuses as never }
     }
   });
-
-  return NextResponse.json(vehicle, { status: 201 });
+  return count > 0;
 }

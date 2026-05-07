@@ -3,6 +3,7 @@
 import { Download, Eye, PencilLine, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { formatNaira } from "@/lib/utils";
 
 export type AdminServiceDocument = {
@@ -54,6 +55,7 @@ export type AdminServiceRequest = {
     addressLine: string;
     city: string;
     state: string;
+    deliveryMethod?: string;
   } | null;
   assignedAdminId: string | null;
   assignedTo: string | null;
@@ -188,6 +190,7 @@ function RequestDetailsModal({
   onMarkPayment: (request: AdminServiceRequest) => void;
 }) {
   const requirementEntries = Object.entries(request.requirements).filter(([key]) => !["adminNotes", "deliveryPeriod"].includes(key));
+  const bulkItems = normalizeBulkItems(request.requirements.items);
   const serviceAppliedFor = getAppliedServiceName(request);
   const readyDocuments = request.documents.filter((document) => document.kind === "RENEWED_DOCUMENT");
 
@@ -221,6 +224,7 @@ function RequestDetailsModal({
                 <Detail label="Email" value={request.customer.email} />
                 <Detail label="Phone" value={request.customer.phone || "Not provided"} />
                 <Detail label="State" value={request.state || "Not selected"} />
+                <Detail label="Delivery option" value={formatDeliveryMethod(request.deliveryAddress?.deliveryMethod)} />
                 <Detail label="Delivery city" value={request.deliveryAddress?.city || "Not provided"} />
                 <Detail label="Delivery phone" value={request.deliveryAddress?.phone || "Not provided"} />
                 <div className="sm:col-span-2">
@@ -240,14 +244,43 @@ function RequestDetailsModal({
 
             <Panel title="Submitted details">
               <div className="grid gap-3 text-sm sm:grid-cols-2">
-                {requirementEntries.map(([key, value]) => (
+                {requirementEntries.filter(([key]) => !["bulkOrder", "fleetTarget", "itemCount", "items"].includes(key)).map(([key, value]) => (
                   <Detail key={key} label={formatFieldLabel(key)} value={formatValue(value)} />
                 ))}
-                {!requirementEntries.length ? (
+                {!requirementEntries.filter(([key]) => !["bulkOrder", "fleetTarget", "itemCount", "items"].includes(key)).length ? (
                   <p className="text-sm font-semibold text-ink/55">No submitted requirement details.</p>
                 ) : null}
               </div>
             </Panel>
+
+            {bulkItems.length ? (
+              <Panel title="Grouped fleet services">
+                <div className="grid gap-3">
+                  {bulkItems.map((item, index) => (
+                    <details key={item.id} className="rounded border border-brand-900/10 bg-brand-50/35 p-3">
+                      <summary className="cursor-pointer text-sm font-black text-ink">
+                        #{index + 1} {item.label}
+                      </summary>
+                      <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                        {Object.entries(item.details).map(([key, value]) => (
+                          <Detail key={`${item.id}-${key}`} label={formatFieldLabel(key)} value={value} />
+                        ))}
+                        {Object.entries(item.files).map(([key, file]) => (
+                          <div key={`${item.id}-${key}`}>
+                            <p className="text-xs font-black uppercase text-ink/42">{formatFieldLabel(key)}</p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="min-w-0 break-words font-medium text-ink/78">{file.fileName}</span>
+                              <FileAction href={documentUrlFromStorageKey(file.storageKey)} label="View uploaded document" icon="view" />
+                              <FileAction href={documentUrlFromStorageKey(file.storageKey, true)} label="Download uploaded document" icon="download" download />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
 
             <Panel title="Uploaded documents">
               <div className="grid gap-2">
@@ -258,8 +291,8 @@ function RequestDetailsModal({
                       <p className="text-xs text-ink/50">{document.mimeType} - {formatFileSize(document.fileSize)}</p>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <FileAction href={document.publicUrl || publicUrlFromStorageKey(document.storageKey)} label="View document" icon="view" />
-                      <FileAction href={document.publicUrl || publicUrlFromStorageKey(document.storageKey)} label="Download document" icon="download" download />
+                      <FileAction href={documentUrlFromStorageKey(document.storageKey)} label="View document" icon="view" />
+                      <FileAction href={documentUrlFromStorageKey(document.storageKey, true)} label="Download document" icon="download" download />
                     </div>
                   </div>
                 ))}
@@ -292,8 +325,8 @@ function RequestDetailsModal({
                         <p className="text-xs text-ink/50">{document.mimeType} - {formatFileSize(document.fileSize)}</p>
                       </div>
                       <div className="flex shrink-0 gap-2">
-                        <FileAction href={document.publicUrl || publicUrlFromStorageKey(document.storageKey)} label="View ready document" icon="view" />
-                        <FileAction href={document.publicUrl || publicUrlFromStorageKey(document.storageKey)} label="Download ready document" icon="download" download />
+                        <FileAction href={documentUrlFromStorageKey(document.storageKey)} label="View ready document" icon="view" />
+                        <FileAction href={documentUrlFromStorageKey(document.storageKey, true)} label="Download ready document" icon="download" download />
                       </div>
                     </div>
                   ))}
@@ -608,12 +641,59 @@ function formatValue(value: unknown): string {
   }
 }
 
+function formatDeliveryMethod(method?: string) {
+  const labels: Record<string, string> = {
+    PHYSICAL_DELIVERY: "Physical delivery",
+    SCAN_TO_ME: "Scan to me (online)",
+    PICKUP_OFFICE: "Pickup from our office",
+    HOME_OFFICE: "Physical delivery"
+  };
+  return method ? labels[method] || formatFieldLabel(method) : "Physical delivery";
+}
+
 function formatFileSize(size: number) {
   if (!size) return "size unavailable";
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function publicUrlFromStorageKey(storageKey: string) {
-  return storageKey.startsWith("uploads/") ? `/${storageKey}` : null;
+function normalizeBulkItems(value: unknown): { id: string; label: string; details: Record<string, string>; files: Record<string, { fileName: string; storageKey: string; publicUrl?: string }> }[] {
+  if (!Array.isArray(value)) return [];
+  return value.reduce<{ id: string; label: string; details: Record<string, string>; files: Record<string, { fileName: string; storageKey: string; publicUrl?: string }> }[]>((items, item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return items;
+    const row = item as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id : "";
+    if (!id) return items;
+    items.push({
+      id,
+      label: typeof row.label === "string" ? row.label : id,
+      details: asStringRecord(row.details),
+      files: asFileRecord(row.files)
+    });
+    return items;
+  }, []);
+}
+
+function asStringRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.entries(value).reduce<Record<string, string>>((record, [key, item]) => {
+    if (typeof item === "string") record[key] = item;
+    return record;
+  }, {});
+}
+
+function asFileRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.entries(value).reduce<Record<string, { fileName: string; storageKey: string; publicUrl?: string }>>((record, [key, item]) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return record;
+    const row = item as Record<string, unknown>;
+    if (typeof row.fileName === "string" && typeof row.storageKey === "string") {
+      record[key] = {
+        fileName: row.fileName,
+        storageKey: row.storageKey,
+        publicUrl: typeof row.publicUrl === "string" ? row.publicUrl : undefined
+      };
+    }
+    return record;
+  }, {});
 }

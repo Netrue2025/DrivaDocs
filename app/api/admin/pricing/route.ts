@@ -28,18 +28,27 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid price" }, { status: 400 });
 
   const data = parsed.data;
-  const price = await prisma.servicePricing.create({
-    data: {
-      serviceType: data.serviceType as never,
-      serviceName: data.serviceName,
-      vehicleType: data.vehicleType || null,
-      engineCategory: data.engineCategory || null,
-      usage: data.usage || null,
-      state: data.state || null,
-      location: data.location || null,
-      amount: data.amount
-    }
-  });
+  const key = {
+    serviceType: data.serviceType as never,
+    serviceName: data.serviceName,
+    vehicleType: data.vehicleType || null,
+    engineCategory: data.engineCategory || null,
+    usage: data.usage || null,
+    state: data.state || null,
+    location: data.location || null
+  };
+  const existing = await prisma.servicePricing.findFirst({ where: key });
+  const price = existing
+    ? await prisma.servicePricing.update({
+        where: { id: existing.id },
+        data: { amount: data.amount, active: true }
+      })
+    : await prisma.servicePricing.create({
+        data: {
+          ...key,
+          amount: data.amount
+        }
+      });
 
   await prisma.auditLog.create({
     data: {

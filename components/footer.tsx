@@ -35,14 +35,14 @@ export function Footer({ compact = false }: { compact?: boolean }) {
         <div>
           <p className="font-semibold">Support</p>
           <div className="mt-3 grid gap-2 text-sm text-white/70">
-            <a href="tel:+2349074707624" className="flex items-center gap-2">
-              <Phone size={16} /> +234 907 470 7624
+            <a href="tel:09074707624" className="flex items-center gap-2">
+              <Phone size={16} /> 09074707624
             </a>
             <a href="mailto:support@drivadocs.ng" className="flex items-center gap-2">
               <Mail size={16} /> Email support
             </a>
-            <a href="https://wa.me/2348147511776" className="flex items-center gap-2">
-              <MessageCircle size={16} /> +234 814 751 1776
+            <a href="https://wa.me/2349074707624" className="flex items-center gap-2">
+              <MessageCircle size={16} /> 09074707624
             </a>
           </div>
         </div>

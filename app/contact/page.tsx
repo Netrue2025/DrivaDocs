@@ -16,11 +16,11 @@ export default function ContactPage() {
           Your message is sent to info@netrue.io and stored for admin follow-up.
         </p>
         <div className="mt-8 grid gap-3">
-          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="tel:+2349074707624">
-            <Phone className="text-brand-700" /> +234 907 470 7624
+          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="tel:09074707624">
+            <Phone className="text-brand-700" /> 09074707624
           </a>
-          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="https://wa.me/2348147511776">
-            <MessageCircle className="text-brand-700" /> WhatsApp support: +234 814 751 1776
+          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="https://wa.me/2349074707624">
+            <MessageCircle className="text-brand-700" /> WhatsApp support: 09074707624
           </a>
           <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="mailto:info@netrue.io">
             <Mail className="text-brand-700" /> info@netrue.io

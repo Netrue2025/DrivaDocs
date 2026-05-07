@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PreloaderArtwork } from "@/components/preloader-artwork";
 
 export function NavigationPreloader() {
@@ -11,24 +11,24 @@ export function NavigationPreloader() {
   const hideTimer = useRef<number | null>(null);
   const initialLoadDone = useRef(false);
 
-  function clearTimers() {
+  const clearTimers = useCallback(() => {
     if (showTimer.current) window.clearTimeout(showTimer.current);
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
     showTimer.current = null;
     hideTimer.current = null;
-  }
+  }, []);
 
-  function scheduleLoader(delay = 220) {
+  const scheduleLoader = useCallback((delay = 220) => {
     clearTimers();
     showTimer.current = window.setTimeout(() => setVisible(true), delay);
     hideTimer.current = window.setTimeout(() => setVisible(false), 12000);
-  }
+  }, [clearTimers]);
 
   useEffect(() => {
     if (!initialLoadDone.current) return;
     clearTimers();
     setVisible(false);
-  }, [pathname]);
+  }, [clearTimers, pathname]);
 
   useEffect(() => {
     function finishInitialLoad() {
@@ -83,7 +83,7 @@ export function NavigationPreloader() {
       window.removeEventListener("load", finishInitialLoad);
       clearTimers();
     };
-  }, []);
+  }, [clearTimers, scheduleLoader]);
 
   if (!visible) return null;
 

@@ -5,6 +5,7 @@ import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { Footer } from "@/components/footer";
 import { NavbarClient } from "@/components/navbar-client";
 import { NavigationPreloader } from "@/components/navigation-preloader";
+import { WhatsappFloatingButton } from "@/components/whatsapp-floating-button";
 
 const navItems = [
   { href: "/pricing", label: "Pricing" },
@@ -27,6 +28,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         <div className="site-chrome-footer">
           <Footer compact={useCompactFooter} />
         </div>
+        <WhatsappFloatingButton />
         <NavigationPreloader />
       </div>
     </AuthSessionProvider>
