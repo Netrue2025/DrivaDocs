@@ -445,9 +445,11 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
             <div className="mt-5 rounded border border-road/25 bg-road/10 p-3 text-sm font-semibold leading-6 text-white/82">
               {deliveryPeriod}
             </div>
-            <p className="mt-5 text-sm leading-6 text-white/60">
-              Final amount can be adjusted by an admin if agency or state-specific requirements change.
-            </p>
+            {serviceType === "VEHICLE_PAPER_RENEWAL" ? (
+              <p className="mt-5 text-sm leading-6 text-white/60">
+                Proof of Ownership certificate may take longer due to delays from the processing authorities.
+              </p>
+            ) : null}
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"

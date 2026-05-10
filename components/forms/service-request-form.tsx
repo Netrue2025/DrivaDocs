@@ -749,6 +749,7 @@ export function ServiceRequestForm({
 
       {reviewOpen && serviceType ? (
         <ReviewModal
+          serviceType={serviceType}
           serviceName={serviceLabels[serviceType]}
           deliveryPeriod={deliveryPeriod}
           total={total}
@@ -974,6 +975,7 @@ function Input({
 }
 
 function ReviewModal({
+  serviceType,
   serviceName,
   deliveryPeriod,
   total,
@@ -999,6 +1001,7 @@ function ReviewModal({
   busyAction,
   errorMessage
 }: {
+  serviceType: ServiceType;
   serviceName: string;
   deliveryPeriod: string;
   total: number;
@@ -1085,6 +1088,11 @@ function ReviewModal({
         <div className="mt-4 rounded border border-road/35 bg-road/10 p-3 text-sm font-semibold leading-6 text-ink/72">
           {deliveryPeriod}
         </div>
+        {serviceType === "VEHICLE_PAPER_RENEWAL" ? (
+          <p className="mt-3 rounded border border-brand-900/10 bg-brand-50 p-3 text-sm font-semibold leading-6 text-ink/68">
+            Proof of Ownership certificate may take longer due to delays from the processing authorities.
+          </p>
+        ) : null}
         <fieldset className="mt-5 grid gap-3">
           <legend className="font-black">Payment option</legend>
           <label className="flex cursor-pointer items-center gap-3 rounded border border-brand-900/10 p-3">
