@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import type { PricingServiceType } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { resolveFleetAmount } from "@/lib/fleet-pricing";
 import { prisma } from "@/lib/prisma";
-import { pricingCatalog, serviceLabels, type PricingItem } from "@/lib/pricing-catalog";
+import { serviceLabels, type PricingItem } from "@/lib/pricing-catalog";
 import { requestCode, splitPayment } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
       return {
         id: vehicle.id,
         label: vehicle.registrationNo || `${vehicle.make} ${vehicle.model}`,
-        amount: resolveAmount(data.serviceType, pricing, vehicle.vehicleType, vehicle.engineCategory),
+        amount: resolveFleetAmount(data.serviceType, pricing, vehicle.vehicleType, vehicle.engineCategory, vehicle.usage),
         make: vehicle.make,
         model: vehicle.model,
         registrationNo: vehicle.registrationNo,
@@ -179,7 +180,7 @@ export async function POST(request: Request) {
     return {
       id: driver.id,
       label: driverName,
-      amount: resolveAmount(data.serviceType, pricing),
+      amount: resolveFleetAmount(data.serviceType, pricing),
       phone: driver.phone,
       licenseNo: driver.licenseNo,
       riderLicenseNo: driver.riderLicenseNo,
@@ -232,33 +233,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ requestId: created.id, count: items.length, total, upfrontAmount: split.upfront, balanceAmount: split.balance }, { status: 201 });
-}
-
-function resolveAmount(serviceType: string, rows: PricingItem[], vehicleType?: string, engineCategory?: string | null) {
-  const source = rows.length ? rows : pricingCatalog.filter((item) => item.serviceType === serviceType);
-  if (serviceType === "NEW_VEHICLE_REGISTRATION") {
-    return (
-      source.find((item) => vehicleType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === engineCategory) && !item.state)?.amount ??
-      source.find((item) => vehicleType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === engineCategory))?.amount ??
-      source.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-      source[0]?.amount ??
-      0
-    );
-  }
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") {
-    return (
-      source.find((item) => vehicleType && item.vehicleType === vehicleType && !item.state && !item.engineCategory && !item.usage)?.amount ??
-      source.find((item) => vehicleType && item.vehicleType === vehicleType && item.state === "Lagos" && !item.engineCategory && !item.usage)?.amount ??
-      source.find((item) => vehicleType && item.vehicleType === vehicleType && item.state === "Lagos")?.amount ??
-      source.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-      source[0]?.amount ??
-      0
-    );
-  }
-  return (
-    source.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-    source.find((item) => item.state === "Lagos")?.amount ??
-    source[0]?.amount ??
-    0
-  );
 }

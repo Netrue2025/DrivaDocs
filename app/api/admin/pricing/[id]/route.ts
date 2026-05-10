@@ -39,3 +39,29 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   return NextResponse.json(price);
 }
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (session?.user.role !== "ADMIN" && session?.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const existing = await prisma.servicePricing.findUnique({ where: { id: params.id } });
+  if (!existing) return NextResponse.json({ error: "Price not found" }, { status: 404 });
+
+  const price = await prisma.servicePricing.update({
+    where: { id: params.id },
+    data: { active: false }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "SERVICE_PRICE_DELETED",
+      entityType: "ServicePricing",
+      entityId: price.id,
+      metadata: { serviceName: price.serviceName, amount: price.amount }
+    }
+  });
+
+  return NextResponse.json(price);
+}

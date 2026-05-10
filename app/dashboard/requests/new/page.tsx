@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { ServiceRequestForm, type InitialServiceDraft } from "@/components/forms/service-request-form";
+import dynamicImport from "next/dynamic";
+import type { InitialServiceDraft } from "@/components/forms/service-request-form";
 import { authOptions } from "@/lib/auth";
 import { mergePricingWithCatalog, pricingCatalog, type PricingItem } from "@/lib/pricing-catalog";
 import { prisma } from "@/lib/prisma";
 import { serviceRequirements } from "@/lib/service-requirements";
 
 export const dynamic = "force-dynamic";
+
+const ServiceRequestForm = dynamicImport(() => import("@/components/forms/service-request-form").then((mod) => mod.ServiceRequestForm), {
+  loading: () => <RequestFormFallback />
+});
 
 type NewRequestSearchParams = {
   serviceType?: string;
@@ -136,17 +140,28 @@ export default async function NewRequestPage({
   }
 
   return (
-    <DashboardShell title="Start a service request" description="Complete the guided steps, upload document metadata, and submit for processing.">
-      <ServiceRequestForm
-        initialDraft={initialDraft}
-        initialServiceType={initialServiceType}
-        initialState={searchParams?.state}
-        initialVehicleType={searchParams?.vehicleType}
-        initialOtherDocument={searchParams?.otherDocument}
-        prices={prices}
-        freshStart={searchParams?.fresh === "1"}
-      />
-    </DashboardShell>
+    <ServiceRequestForm
+      initialDraft={initialDraft}
+      initialServiceType={initialServiceType}
+      initialState={searchParams?.state}
+      initialVehicleType={searchParams?.vehicleType}
+      initialOtherDocument={searchParams?.otherDocument}
+      prices={prices}
+      freshStart={searchParams?.fresh === "1"}
+    />
+  );
+}
+
+function RequestFormFallback() {
+  return (
+    <div className="rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
+      <div className="h-6 w-48 animate-pulse rounded bg-brand-900/10" />
+      <div className="mt-5 grid gap-3">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="h-12 animate-pulse rounded bg-brand-50" />
+        ))}
+      </div>
+    </div>
   );
 }
 

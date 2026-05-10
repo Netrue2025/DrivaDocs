@@ -1,11 +1,7 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { AdminFleetManager, type AdminFleetBusiness } from "@/components/admin-fleet-manager";
 import { AdminServiceList, type AdminServiceRequest } from "@/components/admin-service-list";
-import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
-import { authOptions } from "@/lib/auth";
 import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { prisma } from "@/lib/prisma";
 import { formatNaira } from "@/lib/utils";
@@ -13,9 +9,6 @@ import { formatNaira } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) redirect("/dashboard");
-
   let dbConnectionFailed = false;
   let loggedDbError = false;
   const dbFallback =
@@ -166,7 +159,7 @@ export default async function AdminPage() {
   }));
 
   return (
-    <AdminShell title="Admin console">
+    <>
       <div className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4">
         <Stat label="Users" value={usersCount} />
         <Stat label="Requests" value={requestsCount} />
@@ -213,7 +206,7 @@ export default async function AdminPage() {
           </div>
         </div>
       </section>
-    </AdminShell>
+    </>
   );
 }
 

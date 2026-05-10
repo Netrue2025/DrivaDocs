@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { engineCategories, newVehicleRegistrationCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehiclePaperRenewalCategories, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { adminVehicleCategories, categoryEngineOptions, defaultRenewalBreakdownItemsForVehicle, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
+import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira, splitPayment } from "@/lib/utils";
 
@@ -78,7 +79,6 @@ const serviceFieldRules: Record<
 };
 
 const ownershipRoutes = ["Lagos to Lagos", "Lagos to Oyo", "Oyo to Oyo"];
-const preferredPlateStates = [...newVehicleRegistrationLocations, "Others State"];
 const deliveryMethods: { value: DeliveryMethod; label: string }[] = [
   { value: "PHYSICAL_DELIVERY", label: "Physical delivery" },
   { value: "SCAN_TO_ME", label: "Scan to me (online)" },
@@ -103,6 +103,10 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const showPreferredStatePlate = serviceType === "NEW_VEHICLE_REGISTRATION";
   const otherDocumentReady = serviceType !== "OTHER_PERMIT" || Boolean(otherDocument);
   const preferredStateReady = serviceType !== "NEW_VEHICLE_REGISTRATION" || state !== "Others State" || Boolean(otherState.trim());
+  const engineOptions = useMemo(() => engineOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
+  const usageOptions = useMemo(() => usageOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
+  const preferredPlateOptions = useMemo(() => [...stateOptionsForService(prices, "NEW_VEHICLE_REGISTRATION", newVehicleRegistrationLocations), "Others State"], [prices]);
+  const deliveryStateOptions = useMemo(() => stateOptionsForService(prices, "DELIVERY", deliveryStates), [prices]);
   const deliveryOptions = useMemo(() => deliveryOptionsForState(prices, deliveryState), [deliveryState, prices]);
   const selectedDeliveryLocation = deliveryOptions.some((item) => item.location === deliveryLocation)
     ? deliveryLocation
@@ -112,31 +116,18 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const servicePrice = useMemo(() => {
     if (!serviceType) return undefined;
     const preferredState = servicePricingState;
-    const effectiveEngineCategory = vehicleType === "Motorcycle" ? "Motorcycle" : engineCategory;
+    const effectiveEngineCategory = engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || (vehicleType === "Motorcycle" ? "Motorcycle" : engineCategories[0]);
 
     if (serviceType === "OTHER_PERMIT") {
       return prices.find((item) => item.serviceType === serviceType && item.serviceName === otherDocument);
     }
 
     if (serviceType === "NEW_VEHICLE_REGISTRATION") {
-      return (
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && item.usage === usage) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && item.usage === "PRIVATE/COMMERCIAL") ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === preferredState && !item.usage) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === effectiveEngineCategory) && !item.state) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
-        prices.find((item) => item.serviceType === serviceType)
-      );
+      return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, usage, preferredState);
     }
 
     if (serviceType === "VEHICLE_PAPER_RENEWAL") {
-      return (
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && !item.engineCategory && !item.usage && !item.state) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state && !item.engineCategory && !item.usage) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
-        prices.find((item) => item.serviceType === serviceType)
-      );
+      return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, usage, state);
     }
 
     return (
@@ -152,7 +143,23 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
       prices.find((item) => item.serviceType === serviceType && (!item.state || item.state === preferredState)) ??
       prices.find((item) => item.serviceType === serviceType)
     );
-  }, [engineCategory, otherDocument, ownershipRoute, prices, servicePricingState, serviceType, state, usage, vehicleType]);
+  }, [engineCategory, engineOptions, otherDocument, ownershipRoute, prices, servicePricingState, serviceType, state, usage, vehicleType]);
+  const effectiveEngineCategory = engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || (vehicleType === "Motorcycle" ? "Motorcycle" : engineCategories[0]);
+  const renewalBreakdown = useMemo(() => {
+    if (serviceType !== "VEHICLE_PAPER_RENEWAL") return [];
+    const managed = prices
+      .filter((item) =>
+        item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
+        item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL &&
+        item.vehicleType === vehicleType &&
+        sameOption(item.engineCategory, effectiveEngineCategory) &&
+        sameOption(item.usage, usage) &&
+        !item.state &&
+        !item.location
+      )
+      .map((item) => ({ label: item.serviceName, amount: item.amount }));
+    return managed.length ? managed : defaultRenewalBreakdownItemsForVehicle(vehicleType, effectiveEngineCategory, usage);
+  }, [effectiveEngineCategory, prices, serviceType, usage, vehicleType]);
 
   const delivery = useMemo(() => {
     return (
@@ -161,7 +168,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
     );
   }, [deliveryState, prices, selectedDeliveryLocation]);
 
-  const base = servicePrice?.amount ?? 0;
+  const base = renewalBreakdown.length ? renewalBreakdown.reduce((sum, item) => sum + item.amount, 0) : servicePrice?.amount ?? 0;
   const deliveryCost = deliveryMethod === "PHYSICAL_DELIVERY" ? delivery?.amount ?? 0 : 0;
   const isNegotiated = Boolean(servicePrice?.notes && servicePrice.amount === 0);
   const total = isNegotiated ? 0 : base + deliveryCost;
@@ -201,8 +208,10 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
               value={serviceType}
               onChange={(event) => {
                 const nextService = event.target.value as ServiceType;
+                const nextVehicleType = defaultVehicleTypeForService(nextService);
                 setServiceType(nextService);
-                setVehicleType(defaultVehicleTypeForService(nextService));
+                setVehicleType(nextVehicleType);
+                setEngineCategory(engineOptionsForVehicle(prices, nextService, nextVehicleType)[0] || categoryEngineOptions[nextVehicleType]?.[0] || engineCategories[0]);
                 setOtherDocument("");
                 setState("Lagos");
                 setOtherState("");
@@ -247,7 +256,9 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                   <select
                     value={vehicleType}
                     onChange={(event) => {
-                      setVehicleType(event.target.value);
+                      const nextVehicleType = event.target.value;
+                      setVehicleType(nextVehicleType);
+                      setEngineCategory(engineOptionsForVehicle(prices, serviceType, nextVehicleType)[0] || categoryEngineOptions[nextVehicleType]?.[0] || engineCategories[0]);
                       setEstimateOpen(false);
                     }}
                     className="field"
@@ -258,23 +269,23 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                   </select>
                 </Field>
               ) : null}
-              {rules.engineCategory && serviceType !== "NEW_VEHICLE_REGISTRATION" && serviceType !== "VEHICLE_PAPER_RENEWAL" && vehicleType !== "Motorcycle" ? (
+              {(serviceType === "NEW_VEHICLE_REGISTRATION" || serviceType === "VEHICLE_PAPER_RENEWAL") && needsEngineCategory(vehicleType) ? (
                 <Field label="Engine/category">
                   <select
-                    value={engineCategory}
+                    value={engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || engineCategories[0]}
                     onChange={(event) => {
                       setEngineCategory(event.target.value);
                       setEstimateOpen(false);
                     }}
                     className="field"
                   >
-                    {engineCategories.map((item) => (
+                    {(engineOptions.length ? engineOptions : categoryEngineOptions[vehicleType] || engineCategories.filter((item) => item !== "Motorcycle")).map((item) => (
                       <option key={item}>{item}</option>
                     ))}
                   </select>
                 </Field>
               ) : null}
-              {rules.usage && serviceType !== "VEHICLE_PAPER_RENEWAL" ? (
+              {rules.usage && (serviceType !== "VEHICLE_PAPER_RENEWAL" || needsUsageCategory(serviceType, vehicleType)) ? (
                 <Field label="Private or commercial">
                   <select
                     value={usage}
@@ -284,9 +295,9 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                     }}
                     className="field"
                   >
-                    {usageTypes.map((item) => (
+                    {usageOptions.map((item) => (
                       <option key={item} value={item}>
-                        {item === "PRIVATE" ? "Private" : "Commercial"}
+                        {item === "PRIVATE" ? "Private" : item === "COMMERCIAL" ? "Commercial" : item}
                       </option>
                     ))}
                   </select>
@@ -319,7 +330,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                     }}
                     className="field"
                   >
-                    {preferredPlateStates.map((item) => (
+                    {preferredPlateOptions.map((item) => (
                       <option key={item}>{item}</option>
                     ))}
                   </select>
@@ -364,7 +375,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                     }}
                     className="field"
                   >
-                    {deliveryStates.map((item) => (
+                    {deliveryStateOptions.map((item) => (
                       <option key={item}>{item}</option>
                     ))}
                   </select>
@@ -478,8 +489,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 function vehicleOptionsForService(serviceType: ServiceType | "") {
-  if (serviceType === "NEW_VEHICLE_REGISTRATION") return newVehicleRegistrationCategories;
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") return vehiclePaperRenewalCategories;
+  if (serviceType === "NEW_VEHICLE_REGISTRATION" || serviceType === "VEHICLE_PAPER_RENEWAL") return adminVehicleCategories;
   return vehicleTypes;
 }
 
@@ -495,4 +505,8 @@ function deliveryOptionsForState(prices: PricingItem[], state: string) {
       amount: item.amount
     }))
     .filter((item, index, source) => source.findIndex((candidate) => candidate.location === item.location) === index);
+}
+
+function sameOption(left?: string | null, right?: string | null) {
+  return (left || "") === (right || "");
 }

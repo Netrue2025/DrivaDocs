@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Bell } from "lucide-react";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ManualReminderForm } from "@/components/manual-reminder-form";
 import { ReminderControls } from "@/components/reminder-controls";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +31,7 @@ export default async function RemindersPage() {
   ]);
 
   return (
-    <DashboardShell title="Reminders" description="Create, switch off, or cancel renewal reminders for your existing services.">
+    <>
       <div className="grid min-w-0 gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="min-w-0">
           <h2 className="mb-3 text-xl font-black">Create manual reminder</h2>
@@ -81,6 +80,6 @@ export default async function RemindersPage() {
           </div>
         </div>
       </div>
-    </DashboardShell>
+    </>
   );
 }

@@ -18,6 +18,7 @@ import { ButtonLink } from "@/components/ui/button-link";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { ServiceStartLink } from "@/components/service-start-link";
+import { TestimonialMarquee } from "@/components/testimonial-marquee";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -322,21 +323,7 @@ export default async function HomePage() {
       <section className="section-muted-map py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading eyebrow="Testimonials" title="Trusted by individuals and fleet operators" />
-          <div className="testimonial-marquee mt-8 py-6">
-            <div className="testimonial-marquee-track">
-              {[...testimonials, ...testimonials].map((item, index) => (
-              <article
-                key={`${item.name}-${index}`}
-                className="testimonial-marquee-card rounded border border-brand-900/10 bg-white p-5"
-                style={{ animationDelay: `${index * -4.33}s` }}
-              >
-                <p className="leading-7 text-ink/70">&ldquo;{item.quote}&rdquo;</p>
-                <p className="mt-5 font-black">{item.name}</p>
-                <p className="text-sm text-brand-700">{item.role}</p>
-              </article>
-              ))}
-            </div>
-          </div>
+          <TestimonialMarquee testimonials={testimonials} />
         </div>
       </section>
       </ScrollReveal>

@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { vehicleTypes, engineCategories, usageTypes } from "@/lib/pricing-catalog";
+import { categoryEngineOptions, engineOptionsForVehicle, usageOptionsForVehicle } from "@/lib/fleet-pricing";
+import { vehicleTypes, engineCategories, usageTypes, type PricingItem } from "@/lib/pricing-catalog";
 
 type VehicleFormData = {
   id?: string;
@@ -24,12 +25,14 @@ export function VehicleForm({
   modal = false,
   onSaved,
   initialData,
-  savePath
+  savePath,
+  prices = []
 }: {
   modal?: boolean;
   onSaved?: () => void;
   initialData?: VehicleFormData;
   savePath?: string;
+  prices?: PricingItem[];
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -44,7 +47,7 @@ export function VehicleForm({
     engineNo: initialData?.engineNo || "",
     color: initialData?.color || "",
     vehicleType: initialData?.vehicleType || vehicleTypes[0],
-    engineCategory: initialData?.engineCategory || engineCategories[0],
+    engineCategory: initialData?.engineCategory || engineOptionsForVehicle(prices, ["VEHICLE_PAPER_RENEWAL", "NEW_VEHICLE_REGISTRATION"], initialData?.vehicleType || vehicleTypes[0])?.[0] || categoryEngineOptions[initialData?.vehicleType || vehicleTypes[0]]?.[0] || engineCategories[0],
     usage: initialData?.usage || usageTypes[0],
     licenseExpiry: initialData?.licenseExpiry || "",
     roadWorthinessExpiry: initialData?.roadWorthinessExpiry || "",
@@ -55,7 +58,13 @@ export function VehicleForm({
   function updateDraft(event: React.FormEvent<HTMLFormElement>) {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     if (!target.name) return;
-    setDraft((current) => ({ ...current, [target.name]: target.value }));
+    setDraft((current) => ({
+      ...current,
+      [target.name]: target.value,
+      ...(target.name === "vehicleType"
+        ? { engineCategory: engineOptionsForVehicle(prices, ["VEHICLE_PAPER_RENEWAL", "NEW_VEHICLE_REGISTRATION"], target.value)[0] || categoryEngineOptions[target.value]?.[0] || engineCategories[0] }
+        : {})
+    }));
   }
 
   function nextStep() {
@@ -134,8 +143,13 @@ export function VehicleForm({
         ) : (
           <>
             <Select name="vehicleType" label="Vehicle type" options={vehicleTypes} defaultValue={draft.vehicleType} />
-            <Select name="engineCategory" label="Engine/category" options={engineCategories} defaultValue={draft.engineCategory} />
-            <Select name="usage" label="Private or commercial" options={usageTypes} defaultValue={draft.usage} />
+            <Select
+              name="engineCategory"
+              label="Engine/category"
+              options={engineOptionsForVehicle(prices, ["VEHICLE_PAPER_RENEWAL", "NEW_VEHICLE_REGISTRATION"], draft.vehicleType) || categoryEngineOptions[draft.vehicleType] || engineCategories}
+              defaultValue={draft.engineCategory}
+            />
+            <Select name="usage" label="Private or commercial" options={usageOptionsForVehicle(prices, ["VEHICLE_PAPER_RENEWAL", "NEW_VEHICLE_REGISTRATION"], draft.vehicleType)} defaultValue={draft.usage} />
             <Input name="licenseExpiry" label="Vehicle license expiry" type="date" defaultValue={draft.licenseExpiry || ""} />
             <Input name="roadWorthinessExpiry" label="Road worthiness expiry" type="date" defaultValue={draft.roadWorthinessExpiry || ""} />
             <Input name="insuranceExpiry" label="Insurance expiry" type="date" defaultValue={draft.insuranceExpiry || ""} />

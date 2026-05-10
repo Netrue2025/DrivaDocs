@@ -1,16 +1,9 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { AdminShell } from "@/components/admin-shell";
 import { AdminSupportInbox, type AdminSupportTicketRow } from "@/components/admin-support-inbox";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSupportPage() {
-  const session = await getServerSession(authOptions);
-  if (!session || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role)) redirect("/dashboard");
-
   const tickets = await prisma.supportTicket.findMany({
     orderBy: { updatedAt: "desc" },
     take: 50,
@@ -56,9 +49,5 @@ export default async function AdminSupportPage() {
         ]
   }));
 
-  return (
-    <AdminShell title="Support tickets">
-      <AdminSupportInbox tickets={rows} />
-    </AdminShell>
-  );
+  return <AdminSupportInbox tickets={rows} />;
 }

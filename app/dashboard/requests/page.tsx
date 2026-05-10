@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Download, Eye } from "lucide-react";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { FleetBulkRequestAction } from "@/components/fleet-bulk-request-action";
 import { RequestPaymentAction } from "@/components/request-payment-action";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +38,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Re
     : null;
 
   return (
-    <DashboardShell title="Service requests" description="Track every request from draft through delivery.">
+    <>
       {completedPayment ? <PaymentSuccessModal request={completedPayment} /> : null}
       <div className="min-w-0 rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -131,7 +130,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Re
           {!requests.length ? <p className="rounded bg-brand-50 p-4 text-sm font-semibold text-ink/65">No requests yet.</p> : null}
         </div>
       </div>
-    </DashboardShell>
+    </>
   );
 }
 

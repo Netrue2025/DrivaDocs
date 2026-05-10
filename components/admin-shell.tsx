@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BadgeDollarSign,
@@ -57,20 +57,28 @@ const adminGroups: Record<AdminGroupKey, AdminGroup> = {
 };
 
 export function AdminShell({
-  title,
+  title: providedTitle,
   children
 }: {
-  title: string;
+  title?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [activeGroup, setActiveGroup] = useState<AdminGroupKey | null>(null);
   const [pendingHref, setPendingHref] = useState("");
+  const title = providedTitle || titleForPath(pathname);
 
   useEffect(() => {
     setActiveGroup(null);
     setPendingHref("");
   }, [pathname]);
+
+  useEffect(() => {
+    for (const item of desktopItems) {
+      router.prefetch(item.href);
+    }
+  }, [router]);
 
   return (
     <>
@@ -228,4 +236,12 @@ function BottomButton({
 
 function isManagePath(pathname: string) {
   return pathname.startsWith("/admin/users") || pathname.startsWith("/admin/pricing") || pathname.startsWith("/admin/content");
+}
+
+function titleForPath(pathname: string) {
+  if (pathname.startsWith("/admin/users")) return "User management";
+  if (pathname.startsWith("/admin/pricing")) return "Service price management";
+  if (pathname.startsWith("/admin/support")) return "Support tickets";
+  if (pathname.startsWith("/admin/content")) return "Home content management";
+  return "Admin console";
 }

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { SupportInbox, type SupportTicketRow } from "@/components/support-inbox";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -59,9 +58,5 @@ export default async function DashboardSupportPage({
 
   const openTicketId = searchParams?.open === "latest" ? rows[0]?.id : searchParams?.open;
 
-  return (
-    <DashboardShell title="Support" description="Read support replies, continue chats, and reopen previous conversations.">
-      <SupportInbox tickets={rows} openTicketId={openTicketId} />
-    </DashboardShell>
-  );
+  return <SupportInbox tickets={rows} openTicketId={openTicketId} />;
 }

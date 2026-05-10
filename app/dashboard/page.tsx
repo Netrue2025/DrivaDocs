@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { Bell, CreditCard, Download, Eye, FileCheck2, ReceiptText } from "lucide-react";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ReminderControls } from "@/components/reminder-controls";
 import { Badge } from "@/components/ui/badge";
 import { authOptions } from "@/lib/auth";
@@ -43,7 +42,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <DashboardShell title="Overview" description="Track requests, payments, reminders, and support from one place.">
+    <>
       <div className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0">
         <Stat icon={FileCheck2} label="Open requests" value={requests.length} />
         <Stat icon={CreditCard} label="Paid" value={formatNaira(payments._sum.amount || 0)} />
@@ -107,7 +106,7 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-    </DashboardShell>
+    </>
   );
 }
 
@@ -175,7 +174,7 @@ function IconAction({
 }
 
 function overviewStatusTone(status: string): "green" | "amber" | "gray" | "red" {
-  if (["DOCUMENT_READY", "DELIVERED"].includes(status)) return "green";
+  if (["PAYMENT_CONFIRMED", "DOCUMENT_READY", "DELIVERED"].includes(status)) return "green";
   if (status === "CANCELLED") return "red";
   if (status === "DRAFT") return "gray";
   return "amber";

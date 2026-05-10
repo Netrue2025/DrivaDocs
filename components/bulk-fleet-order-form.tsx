@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Car, ChevronDown, ChevronRight, IdCard, Send, X } from "lucide-react";
-import { pricingCatalog, serviceLabels, type PricingItem } from "@/lib/pricing-catalog";
+import { resolveFleetAmount } from "@/lib/fleet-pricing";
+import { serviceLabels, type PricingItem } from "@/lib/pricing-catalog";
 import { serviceRequirements, type RequirementField } from "@/lib/service-requirements";
 import { formatNaira, splitPayment } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ type FleetVehicle = {
   meta: string;
   vehicleType: string;
   engineCategory?: string | null;
+  usage?: string | null;
 };
 
 type FleetDriver = {
@@ -22,7 +24,7 @@ type FleetDriver = {
   loggedFields: string[];
 };
 
-type BulkPrice = Pick<PricingItem, "serviceType" | "serviceName" | "vehicleType" | "engineCategory" | "state" | "amount">;
+type BulkPrice = Pick<PricingItem, "serviceType" | "serviceName" | "vehicleType" | "engineCategory" | "usage" | "state" | "amount">;
 type Target = "VEHICLE" | "DRIVER";
 type SubmissionMode = "PAY" | "PAY_LATER";
 type DetailMap = Record<string, Record<string, string>>;
@@ -98,7 +100,13 @@ export function BulkFleetOrderForm({
   const lineItems = selectedRows.map((row) => ({
     id: row.id,
     label: row.label,
-    amount: resolveAmount(serviceType, prices, target === "VEHICLE" ? (row as FleetVehicle).vehicleType : undefined, target === "VEHICLE" ? (row as FleetVehicle).engineCategory : undefined),
+    amount: resolveFleetAmount(
+      serviceType,
+      prices,
+      target === "VEHICLE" ? (row as FleetVehicle).vehicleType : undefined,
+      target === "VEHICLE" ? (row as FleetVehicle).engineCategory : undefined,
+      target === "VEHICLE" ? (row as FleetVehicle).usage : undefined
+    ),
     requirements: getRequirementsForRow(requirements, target, row)
   }));
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
@@ -615,34 +623,6 @@ async function uploadBulkFiles(items: { id: string; requirements: RequirementFie
     }
   }
   return uploaded;
-}
-
-function resolveAmount(serviceType: string, rows: BulkPrice[], vehicleType?: string, engineCategory?: string | null) {
-  const source = rows.length ? rows : pricingCatalog.filter((item) => item.serviceType === serviceType);
-  const matchingService = source.filter((item) => item.serviceType === serviceType);
-  if (serviceType === "NEW_VEHICLE_REGISTRATION") {
-    return (
-      matchingService.find((item) => vehicleType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === engineCategory) && !item.state)?.amount ??
-      matchingService.find((item) => vehicleType && item.vehicleType === vehicleType && (!item.engineCategory || item.engineCategory === engineCategory))?.amount ??
-      matchingService.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-      matchingService[0]?.amount ??
-      0
-    );
-  }
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") {
-    return (
-      matchingService.find((item) => vehicleType && item.vehicleType === vehicleType && !item.state && !item.engineCategory)?.amount ??
-      matchingService.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-      matchingService[0]?.amount ??
-      0
-    );
-  }
-  return (
-    matchingService.find((item) => vehicleType && item.vehicleType === vehicleType)?.amount ??
-    matchingService.find((item) => item.state === "Lagos")?.amount ??
-    matchingService[0]?.amount ??
-    0
-  );
 }
 
 function addHidden(form: HTMLFormElement, name: string, value: string) {

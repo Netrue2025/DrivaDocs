@@ -369,8 +369,8 @@ export const pricingCatalog: PricingItem[] = [
   }
 ];
 
-export const vehicleTypes = ["Car", "SUV", "Bus", "Pickup", "Lorry", "Truck", "Motorcycle"];
-export const engineCategories = ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L", "Motorcycle"];
+export const vehicleTypes = ["Motorcycle", "Tricycle", "Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"];
+export const engineCategories = ["Motorcycle", "Tricycle", "1.0L - 2.0L", "1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"];
 export const usageTypes = ["PRIVATE", "COMMERCIAL"];
 export const states = ["Lagos", "Oyo", "Abuja"];
 

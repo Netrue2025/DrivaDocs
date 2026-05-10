@@ -3,7 +3,8 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { engineCategories, newVehicleRegistrationCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehiclePaperRenewalCategories, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { adminVehicleCategories, categoryEngineOptions, defaultRenewalBreakdownItemsForVehicle, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
+import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { serviceRequirements, type RequirementField } from "@/lib/service-requirements";
 import { formatNaira, splitPayment } from "@/lib/utils";
@@ -98,7 +99,11 @@ export function ServiceRequestForm({
   const allowExitRef = useRef(false);
 
   const requirements = serviceType ? serviceRequirements[serviceType] : [];
-  const effectiveEngineCategory = vehicleType === "Motorcycle" ? "Motorcycle" : values.engineCategory || engineCategories[0];
+  const engineOptions = useMemo(() => engineOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
+  const usageOptions = useMemo(() => usageOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
+  const preferredPlateOptions = useMemo(() => [...stateOptionsForService(prices, "NEW_VEHICLE_REGISTRATION", newVehicleRegistrationLocations), "Others State"], [prices]);
+  const deliveryStateOptions = useMemo(() => stateOptionsForService(prices, "DELIVERY", states), [prices]);
+  const effectiveEngineCategory = values.engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || (vehicleType === "Motorcycle" ? "Motorcycle" : engineCategories[0]);
   const effectivePricingState = serviceType === "NEW_VEHICLE_REGISTRATION" ? resolvePreferredPlate(values) : state;
   const effectiveUsage = values.usage || "PRIVATE";
   const price = useMemo(() => {
@@ -112,48 +117,11 @@ export function ServiceRequestForm({
     }
 
     if (serviceType === "NEW_VEHICLE_REGISTRATION") {
-      return (
-        prices.find(
-          (item) =>
-            item.serviceType === serviceType &&
-            item.vehicleType === vehicleType &&
-            item.state === effectivePricingState &&
-            item.usage === effectiveUsage
-        ) ??
-        prices.find(
-          (item) =>
-            item.serviceType === serviceType &&
-            item.vehicleType === vehicleType &&
-            item.state === effectivePricingState &&
-            item.usage === "PRIVATE/COMMERCIAL"
-        ) ??
-        prices.find(
-          (item) =>
-            item.serviceType === serviceType &&
-            item.vehicleType === vehicleType &&
-            item.state === effectivePricingState &&
-            !item.usage
-        ) ??
-        prices.find(
-          (item) =>
-            item.serviceType === serviceType &&
-            item.vehicleType === vehicleType &&
-            (!item.engineCategory || item.engineCategory === effectiveEngineCategory) &&
-            !item.state
-        ) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
-        prices.find((item) => item.serviceType === serviceType)
-      );
+      return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, effectiveUsage, effectivePricingState);
     }
 
     if (serviceType === "VEHICLE_PAPER_RENEWAL") {
-      return (
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && !item.engineCategory && !item.usage && !item.state) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state && !item.engineCategory && !item.usage) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType && item.state === state) ??
-        prices.find((item) => item.serviceType === serviceType && item.vehicleType === vehicleType) ??
-        prices.find((item) => item.serviceType === serviceType)
-      );
+      return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, effectiveUsage, state);
     }
 
     return (
@@ -179,10 +147,28 @@ export function ServiceRequestForm({
     [deliveryLocation, prices, state]
   );
   const deliveryFee = deliveryMethod === "PHYSICAL_DELIVERY" ? delivery?.amount || 0 : 0;
-  const total = (price?.amount || 0) + deliveryFee;
+  const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
+  const renewalBreakdown = useMemo(() => {
+    if (serviceType !== "VEHICLE_PAPER_RENEWAL") return [];
+    const managed = prices
+      .filter((item) =>
+        item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
+        item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL &&
+        item.vehicleType === vehicleType &&
+        sameOption(item.engineCategory, effectiveEngineCategory) &&
+        sameOption(item.usage, effectiveUsage) &&
+        !item.state &&
+        !item.location
+      )
+      .map((item) => ({ label: item.serviceName, amount: item.amount }));
+    return managed.length ? managed : defaultRenewalBreakdownItemsForVehicle(vehicleType, effectiveEngineCategory, effectiveUsage);
+  }, [effectiveEngineCategory, effectiveUsage, prices, serviceType, vehicleType]);
+  const serviceSubtotal = renewalBreakdown.length
+    ? renewalBreakdown.reduce((sum, item) => sum + item.amount, 0)
+    : price?.amount || 0;
+  const total = serviceSubtotal + deliveryFee;
   const split = splitPayment(total);
   const amountToPay = paymentChoice === "FULL" ? total : split.upfront;
-  const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
   const hasDraftData = Boolean(
     serviceType ||
       Object.values(values).some((value) => Boolean(value?.trim())) ||
@@ -328,8 +314,15 @@ export function ServiceRequestForm({
   }
 
   function selectService(value: string) {
+    const nextVehicleType = defaultVehicleTypeForService(value as ServiceType);
+    const nextEngineOptions = engineOptionsForVehicle(prices, value || undefined, nextVehicleType);
     setServiceType(value as ServiceType);
-    setVehicleType(defaultVehicleTypeForService(value as ServiceType));
+    setVehicleType(nextVehicleType);
+    setValues((current) => ({
+      ...current,
+      engineCategory: nextEngineOptions[0] || categoryEngineOptions[nextVehicleType]?.[0] || engineCategories[0],
+      usage: current.usage || "PRIVATE"
+    }));
     setStatus("");
     setReviewOpen(false);
     if (value !== "OTHER_PERMIT") {
@@ -448,7 +441,7 @@ export function ServiceRequestForm({
           requestId: requestId || undefined,
           requirements: requirementPayload,
           documents,
-          estimateSubtotal: price?.amount || 0,
+          estimateSubtotal: serviceSubtotal,
           deliveryFee,
           totalAmount: total,
           upfrontAmount: split.upfront,
@@ -527,7 +520,7 @@ export function ServiceRequestForm({
           requestId: requestId || undefined,
           requirements: requirementPayload,
           documents,
-          estimateSubtotal: price?.amount || 0,
+          estimateSubtotal: serviceSubtotal,
           deliveryFee,
           totalAmount: total,
           upfrontAmount: split.upfront,
@@ -589,9 +582,12 @@ export function ServiceRequestForm({
           </div>
           {serviceType !== "OTHER_PERMIT" ? (
             <Select
-              label="Vehicle type"
-              value={vehicleType}
-              onChange={setVehicleType}
+                label="Vehicle type"
+                value={vehicleType}
+                onChange={(value) => {
+                  setVehicleType(value);
+                  updateValue("engineCategory", engineOptionsForVehicle(prices, serviceType, value)[0] || categoryEngineOptions[value]?.[0] || engineCategories[0]);
+                }}
               options={vehicleOptionsForService(serviceType).map((item) => ({ value: item, label: item }))}
             />
           ) : null}
@@ -601,14 +597,14 @@ export function ServiceRequestForm({
                 label="Private or commercial"
                 value={values.usage || "PRIVATE"}
                 onChange={(value) => updateValue("usage", value)}
-                options={usageTypes.map((item) => ({ value: item, label: item === "PRIVATE" ? "Private" : "Commercial" }))}
+                options={usageOptions.map((item) => ({ value: item, label: item === "PRIVATE" ? "Private" : item === "COMMERCIAL" ? "Commercial" : item }))}
               />
-              {vehicleType !== "Motorcycle" && !(newVehicleRegistrationCategories as readonly string[]).includes(vehicleType) ? (
+              {needsEngineCategory(vehicleType) ? (
                 <Select
                   label="Engine/category"
-                  value={values.engineCategory || engineCategories[0]}
+                  value={values.engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || engineCategories[0]}
                   onChange={(value) => updateValue("engineCategory", value)}
-                  options={engineCategories.filter((item) => item !== "Motorcycle").map((item) => ({ value: item, label: item }))}
+                  options={(engineOptions.length ? engineOptions : categoryEngineOptions[vehicleType] || engineCategories.filter((item) => item !== "Motorcycle")).map((item) => ({ value: item, label: item }))}
                 />
               ) : null}
               <Select
@@ -618,7 +614,7 @@ export function ServiceRequestForm({
                   updateValue("preferredStatePlate", value);
                   if (value !== "Others State") updateValue("otherPreferredStatePlate", "");
                 }}
-                options={preferredPlateStates.map((item) => ({ value: item, label: item }))}
+                options={preferredPlateOptions.map((item) => ({ value: item, label: item }))}
               />
               {values.preferredStatePlate === "Others State" ? (
                 <Input
@@ -627,6 +623,26 @@ export function ServiceRequestForm({
                   value={values.otherPreferredStatePlate || ""}
                   onChange={updateValue}
                   required
+                />
+              ) : null}
+            </>
+          ) : null}
+          {serviceType === "VEHICLE_PAPER_RENEWAL" ? (
+            <>
+              {needsUsageCategory(serviceType, vehicleType) ? (
+                <Select
+                  label="Private or commercial"
+                  value={values.usage || "PRIVATE"}
+                  onChange={(value) => updateValue("usage", value)}
+                  options={usageOptions.map((item) => ({ value: item, label: item === "PRIVATE" ? "Private" : item === "COMMERCIAL" ? "Commercial" : item }))}
+                />
+              ) : null}
+              {needsEngineCategory(vehicleType) ? (
+                <Select
+                  label="Engine/category"
+                  value={values.engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || engineCategories[0]}
+                  onChange={(value) => updateValue("engineCategory", value)}
+                  options={(engineOptions.length ? engineOptions : categoryEngineOptions[vehicleType] || engineCategories.filter((item) => item !== "Motorcycle")).map((item) => ({ value: item, label: item }))}
                 />
               ) : null}
             </>
@@ -665,7 +681,7 @@ export function ServiceRequestForm({
                     return { ...current, deliveryLocation: nextLocation };
                   });
                 }}
-                options={states.map((item) => ({ value: item, label: item }))}
+                options={deliveryStateOptions.map((item) => ({ value: item, label: item }))}
               />
               {deliveryOptions.length ? (
                 <Select
@@ -750,6 +766,7 @@ export function ServiceRequestForm({
           onlineDeliveryContact={values.onlineDeliveryContact || ""}
           deliveryFee={deliveryFee}
           documentCount={requirements.filter((field) => field.type === "file").length}
+          renewalBreakdown={renewalBreakdown}
           onPaymentChoice={setPaymentChoice}
           onClose={() => setReviewOpen(false)}
           onSave={() => createRequest("PAY_LATER")}
@@ -974,6 +991,7 @@ function ReviewModal({
   onlineDeliveryContact,
   deliveryFee,
   documentCount,
+  renewalBreakdown,
   onPaymentChoice,
   onClose,
   onSave,
@@ -998,6 +1016,7 @@ function ReviewModal({
   onlineDeliveryContact: string;
   deliveryFee: number;
   documentCount: number;
+  renewalBreakdown: { label: string; amount: number }[];
   onPaymentChoice: (choice: PaymentChoice) => void;
   onClose: () => void;
   onSave: () => void;
@@ -1047,6 +1066,19 @@ function ReviewModal({
               {deliveryMethod === "SCAN_TO_ME" ? <RowLight label="Online delivery contact" value={onlineDeliveryContact} /> : null}
               <RowLight label="Uploads needed" value={String(documentCount)} />
               <RowLight label="Delivery address" value={deliveryMethod === "PHYSICAL_DELIVERY" ? deliveryAddress : deliveryMethodLabel(deliveryMethod)} />
+              {renewalBreakdown.length ? (
+                <div className="rounded bg-brand-50 p-3 sm:col-span-2">
+                  <p className="text-xs font-black uppercase text-brand-700">Document price breakdown</p>
+                  <div className="mt-3 grid gap-2">
+                    {renewalBreakdown.map((item) => (
+                      <RowLight key={item.label} label={item.label} value={formatNaira(item.amount)} />
+                    ))}
+                    <div className="border-t border-brand-900/10 pt-2">
+                      <RowLight label="Documents subtotal" value={formatNaira(renewalBreakdown.reduce((sum, item) => sum + item.amount, 0))} strong />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1287,9 +1319,12 @@ function resolvePreferredPlate(values: Record<string, string>) {
     : values.preferredStatePlate || "Lagos";
 }
 
+function sameOption(left?: string | null, right?: string | null) {
+  return (left || "") === (right || "");
+}
+
 function vehicleOptionsForService(serviceType: ServiceType | "") {
-  if (serviceType === "NEW_VEHICLE_REGISTRATION") return newVehicleRegistrationCategories;
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") return vehiclePaperRenewalCategories;
+  if (serviceType === "NEW_VEHICLE_REGISTRATION" || serviceType === "VEHICLE_PAPER_RENEWAL") return adminVehicleCategories;
   return vehicleTypes;
 }
 

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { AdminUserManager } from "@/components/admin-user-manager";
-import { AdminShell } from "@/components/admin-shell";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -26,32 +25,30 @@ export default async function AdminUsersPage() {
   }).catch(() => []);
 
   return (
-    <AdminShell title="User management">
-      <AdminUserManager
-        currentUserId={session.user.id}
-        users={users.map((user) => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          accountType: user.accountType,
-          isActive: user.isActive,
-          emailVerified: user.emailVerified?.toISOString() || null,
-          createdAt: user.createdAt.toISOString(),
-          businessAccount: user.businessAccount
-            ? {
-                companyName: user.businessAccount.companyName,
-                contactPerson: user.businessAccount.contactPerson,
-                registrationNumber: user.businessAccount.registrationNumber,
-                taxId: user.businessAccount.taxId,
-                officeAddress: user.businessAccount.officeAddress,
-                fleetSize: user.businessAccount.fleetSize
-              }
-            : null,
-          _count: user._count
-        }))}
-      />
-    </AdminShell>
+    <AdminUserManager
+      currentUserId={session.user.id}
+      users={users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        accountType: user.accountType,
+        isActive: user.isActive,
+        emailVerified: user.emailVerified?.toISOString() || null,
+        createdAt: user.createdAt.toISOString(),
+        businessAccount: user.businessAccount
+          ? {
+              companyName: user.businessAccount.companyName,
+              contactPerson: user.businessAccount.contactPerson,
+              registrationNumber: user.businessAccount.registrationNumber,
+              taxId: user.businessAccount.taxId,
+              officeAddress: user.businessAccount.officeAddress,
+              fleetSize: user.businessAccount.fleetSize
+            }
+          : null,
+        _count: user._count
+      }))}
+    />
   );
 }

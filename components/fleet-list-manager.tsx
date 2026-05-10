@@ -6,6 +6,7 @@ import { Car, IdCard, PencilLine, Plus, Trash2, X } from "lucide-react";
 import { DriverForm } from "@/components/forms/driver-form";
 import { VehicleForm } from "@/components/forms/vehicle-form";
 import { Badge } from "@/components/ui/badge";
+import type { PricingItem } from "@/lib/pricing-catalog";
 
 type FleetVehicleRow = {
   id: string;
@@ -63,10 +64,12 @@ type ActiveView =
 
 export function FleetListManager({
   vehicles,
-  drivers
+  drivers,
+  prices = []
 }: {
   vehicles: FleetVehicleRow[];
   drivers: FleetDriverRow[];
+  prices?: PricingItem[];
 }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"vehicle" | "driver">("vehicle");
@@ -152,7 +155,7 @@ export function FleetListManager({
             </div>
             <div className="p-4 sm:p-5">
               {activeForm.kind === "vehicle" ? (
-                <VehicleForm modal initialData={activeForm.row ? { id: activeForm.row.id, ...activeForm.row.details } : undefined} onSaved={() => setActiveForm(null)} />
+                <VehicleForm modal prices={prices} initialData={activeForm.row ? { id: activeForm.row.id, ...activeForm.row.details } : undefined} onSaved={() => setActiveForm(null)} />
               ) : (
                 <DriverForm modal initialData={activeForm.row ? { id: activeForm.row.id, ...activeForm.row.details } : undefined} onSaved={() => setActiveForm(null)} />
               )}

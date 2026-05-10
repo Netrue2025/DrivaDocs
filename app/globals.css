@@ -218,11 +218,22 @@ button[data-click-loading="true"]::after {
 
 .testimonial-marquee-card {
   flex: 0 0 min(360px, 82vw);
+  align-self: flex-start;
   transform-origin: center center;
   animation: testimonial-focus 26s linear infinite;
   transition:
     box-shadow 0.3s var(--ease-out),
     border-color 0.3s var(--ease-out);
+}
+
+.testimonial-quote {
+  max-height: 5.25rem;
+  overflow: hidden;
+  transition: max-height 0.28s var(--ease-out);
+}
+
+.testimonial-quote.is-expanded {
+  max-height: 28rem;
 }
 
 @keyframes testimonial-marquee {

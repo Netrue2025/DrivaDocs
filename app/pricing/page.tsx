@@ -1,4 +1,4 @@
-import { PricingEstimator } from "@/components/pricing-estimator";
+import dynamicImport from "next/dynamic";
 import { mergePricingWithCatalog, pricingCatalog, type PricingItem } from "@/lib/pricing-catalog";
 import { prisma } from "@/lib/prisma";
 
@@ -7,6 +7,10 @@ export const metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+const PricingEstimator = dynamicImport(() => import("@/components/pricing-estimator").then((mod) => mod.PricingEstimator), {
+  loading: () => <PricingEstimatorFallback />
+});
 
 export default async function PricingPage() {
   const dbPrices = await prisma.servicePricing
@@ -44,5 +48,18 @@ export default async function PricingPage() {
       </div>
       <PricingEstimator prices={prices} />
     </section>
+  );
+}
+
+function PricingEstimatorFallback() {
+  return (
+    <div className="mt-8 rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
+      <div className="h-5 w-44 animate-pulse rounded bg-brand-900/10" />
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="h-12 animate-pulse rounded bg-brand-50" />
+        ))}
+      </div>
+    </div>
   );
 }

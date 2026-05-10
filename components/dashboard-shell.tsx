@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Building2,
@@ -60,30 +59,41 @@ const mobileGroups: Record<MobileGroupKey, MobileGroup> = {
 
 export function DashboardShell({
   children,
-  title,
-  description
+  title: providedTitle,
+  description: providedDescription,
+  accountType
 }: {
   children: React.ReactNode;
-  title: string;
+  title?: string;
   description?: string;
+  accountType?: string | null;
 }) {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const router = useRouter();
   const [activeGroup, setActiveGroup] = useState<MobileGroupKey | null>(null);
   const [pendingHref, setPendingHref] = useState("");
-  const isBusiness = session?.user.accountType === "BUSINESS";
-  const navItems = isBusiness
+  const pageCopy = dashboardPageCopy(pathname);
+  const title = providedTitle || pageCopy.title;
+  const description = providedDescription ?? pageCopy.description;
+  const isBusiness = accountType === "BUSINESS";
+  const navItems = useMemo(() => isBusiness
     ? [
         ...desktopItems.slice(0, 2),
         { href: "/dashboard/fleets", label: "Fleets" },
         ...desktopItems.slice(2)
       ]
-    : desktopItems;
+    : desktopItems, [isBusiness]);
 
   useEffect(() => {
     setActiveGroup(null);
     setPendingHref("");
   }, [pathname]);
+
+  useEffect(() => {
+    for (const item of navItems) {
+      router.prefetch(item.href.split("?")[0]);
+    }
+  }, [navItems, router]);
 
   return (
     <>
@@ -277,4 +287,35 @@ function getMobileGroup(group: MobileGroupKey, isBusiness: boolean): MobileGroup
       { href: "/dashboard/fleets", label: "Fleets", icon: Building2 }
     ]
   };
+}
+
+function dashboardPageCopy(pathname: string) {
+  if (pathname.startsWith("/dashboard/fleets")) {
+    return {
+      title: "Fleets",
+      description: "Add company vehicles and drivers, then initiate bulk service requests for fleet documents."
+    };
+  }
+  if (pathname.startsWith("/dashboard/requests/new")) {
+    return {
+      title: "Start a service request",
+      description: "Complete the guided steps, upload document metadata, and submit for processing."
+    };
+  }
+  if (pathname.startsWith("/dashboard/requests") && pathname.includes("/receipt")) {
+    return { title: "Receipt", description: "View and print your payment receipt." };
+  }
+  if (pathname.startsWith("/dashboard/requests")) {
+    return { title: "Service requests", description: "Track every request from draft through delivery." };
+  }
+  if (pathname.startsWith("/dashboard/reminders")) {
+    return { title: "Reminders", description: "Create, switch off, or cancel renewal reminders for your existing services." };
+  }
+  if (pathname.startsWith("/dashboard/support")) {
+    return { title: "Support", description: "Read support replies, continue chats, and reopen previous conversations." };
+  }
+  if (pathname.startsWith("/dashboard/profile")) {
+    return { title: "Profile", description: "Update your account details and profile picture." };
+  }
+  return { title: "Overview", description: "Track requests, payments, reminders, and support from one place." };
 }

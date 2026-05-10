@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { DashboardShell } from "@/components/dashboard-shell";
 import { ProfileForm } from "@/components/profile-form";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -17,17 +16,15 @@ export default async function ProfilePage() {
   });
 
   return (
-    <DashboardShell title="Profile" description="Update your account details and profile picture.">
-      <div className="max-w-2xl">
-        <ProfileForm
-          profile={{
-            name: user?.name || "",
-            email: user?.email || session.user.email || "",
-            phone: user?.phone || "",
-            image: user?.image || null
-          }}
-        />
-      </div>
-    </DashboardShell>
+    <div className="max-w-2xl">
+      <ProfileForm
+        profile={{
+          name: user?.name || "",
+          email: user?.email || session.user.email || "",
+          phone: user?.phone || "",
+          image: user?.image || null
+        }}
+      />
+    </div>
   );
 }

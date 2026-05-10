@@ -1,12 +1,17 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { BulkFleetOrderForm } from "@/components/bulk-fleet-order-form";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { FleetListManager } from "@/components/fleet-list-manager";
+import dynamicImport from "next/dynamic";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const BulkFleetOrderForm = dynamicImport(() => import("@/components/bulk-fleet-order-form").then((mod) => mod.BulkFleetOrderForm), {
+  loading: () => <PanelFallback />
+});
+const FleetListManager = dynamicImport(() => import("@/components/fleet-list-manager").then((mod) => mod.FleetListManager), {
+  loading: () => <PanelFallback />
+});
 
 export default async function FleetsPage() {
   const session = await getServerSession(authOptions);
@@ -34,10 +39,7 @@ export default async function FleetsPage() {
   if (!businessAccount) redirect("/dashboard");
 
   return (
-    <DashboardShell
-      title="Fleets"
-      description="Add company vehicles and drivers, then initiate bulk service requests for fleet documents."
-    >
+    <>
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard label="Company" value={businessAccount.companyName} />
         <SummaryCard label="Vehicles" value={businessAccount.vehicles.length} />
@@ -51,6 +53,7 @@ export default async function FleetsPage() {
             serviceName: price.serviceName,
             vehicleType: price.vehicleType || undefined,
             engineCategory: price.engineCategory || undefined,
+            usage: price.usage || undefined,
             state: price.state || undefined,
             amount: price.amount
           }))}
@@ -59,7 +62,8 @@ export default async function FleetsPage() {
             label: vehicle.registrationNo || `${vehicle.make} ${vehicle.model}`,
             meta: `${vehicle.make} ${vehicle.model} - ${vehicle.vehicleType}${vehicle.licenseExpiry ? ` - License expires ${vehicle.licenseExpiry.toLocaleDateString("en-NG")}` : ""}`,
             vehicleType: vehicle.vehicleType,
-            engineCategory: vehicle.engineCategory
+            engineCategory: vehicle.engineCategory,
+            usage: vehicle.usage
           }))}
           drivers={businessAccount.drivers.map((driver) => ({
             id: driver.id,
@@ -86,6 +90,15 @@ export default async function FleetsPage() {
       </div>
 
       <FleetListManager
+        prices={prices.map((price) => ({
+          serviceType: price.serviceType,
+          serviceName: price.serviceName,
+          vehicleType: price.vehicleType || undefined,
+          engineCategory: price.engineCategory || undefined,
+          usage: price.usage || undefined,
+          state: price.state || undefined,
+          amount: price.amount
+        }))}
         vehicles={businessAccount.vehicles.map((vehicle) => ({
           id: vehicle.id,
           title: vehicle.registrationNo || `${vehicle.make} ${vehicle.model}`,
@@ -130,7 +143,7 @@ export default async function FleetsPage() {
           }
         }))}
       />
-    </DashboardShell>
+    </>
   );
 }
 
@@ -153,6 +166,19 @@ function SummaryCard({ label, value }: { label: string; value: React.ReactNode }
     <div className="min-w-0 rounded border border-brand-900/10 bg-white p-4 shadow-sm">
       <p className="text-sm font-bold text-ink/55">{label}</p>
       <p className="mt-2 break-words text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function PanelFallback() {
+  return (
+    <div className="rounded border border-brand-900/10 bg-white p-4 shadow-sm sm:p-5">
+      <div className="h-5 w-40 animate-pulse rounded bg-brand-900/10" />
+      <div className="mt-4 grid gap-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-12 animate-pulse rounded bg-brand-50" />
+        ))}
+      </div>
     </div>
   );
 }

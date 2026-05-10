@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import Image from "next/image";
 import { ReceiptActions } from "@/components/receipt-actions";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -37,9 +38,14 @@ export default async function ReceiptPage({ params }: { params: { id: string } }
       <article className="mt-5 overflow-hidden rounded border border-brand-900/10 bg-white shadow-soft print:mt-0 print:rounded-none print:border-0 print:shadow-none">
         <div className="bg-ink px-5 py-6 text-white sm:px-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-3xl font-black tracking-tight">DrivaDocs</p>
-              <p className="mt-2 text-sm font-semibold text-white/70">Vehicle documents, licensing, renewals, permits, and delivery support.</p>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded bg-white p-2">
+                <Image src="/images/drivadocs-logo.png" alt="DrivaDocs" width={112} height={112} className="h-full w-full object-contain" priority />
+              </span>
+              <span className="min-w-0">
+                <p className="text-3xl font-black tracking-tight">DrivaDocs</p>
+                <p className="mt-2 text-sm font-semibold text-white/70">Vehicle documents, licensing, renewals, permits, and delivery support.</p>
+              </span>
             </div>
             <div className="text-left sm:text-right">
               <p className="text-xs font-black uppercase text-road">Payment receipt</p>
