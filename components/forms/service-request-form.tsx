@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { adminVehicleCategories, categoryEngineOptions, defaultRenewalBreakdownItemsForVehicle, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
+import { adminVehicleCategories, categoryEngineOptions, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, renewalBreakdownItemsForVehicle, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
 import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { serviceRequirements, type RequirementField } from "@/lib/service-requirements";
@@ -150,18 +150,7 @@ export function ServiceRequestForm({
   const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
   const renewalBreakdown = useMemo(() => {
     if (serviceType !== "VEHICLE_PAPER_RENEWAL") return [];
-    const managed = prices
-      .filter((item) =>
-        item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
-        item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL &&
-        item.vehicleType === vehicleType &&
-        sameOption(item.engineCategory, effectiveEngineCategory) &&
-        sameOption(item.usage, effectiveUsage) &&
-        !item.state &&
-        !item.location
-      )
-      .map((item) => ({ label: item.serviceName, amount: item.amount }));
-    return managed.length ? managed : defaultRenewalBreakdownItemsForVehicle(vehicleType, effectiveEngineCategory, effectiveUsage);
+    return renewalBreakdownItemsForVehicle(prices, vehicleType, effectiveEngineCategory, effectiveUsage);
   }, [effectiveEngineCategory, effectiveUsage, prices, serviceType, vehicleType]);
   const serviceSubtotal = renewalBreakdown.length
     ? renewalBreakdown.reduce((sum, item) => sum + item.amount, 0)
@@ -1325,10 +1314,6 @@ function resolvePreferredPlate(values: Record<string, string>) {
   return values.preferredStatePlate === "Others State"
     ? values.otherPreferredStatePlate?.trim() || "Others State"
     : values.preferredStatePlate || "Lagos";
-}
-
-function sameOption(left?: string | null, right?: string | null) {
-  return (left || "") === (right || "");
 }
 
 function vehicleOptionsForService(serviceType: ServiceType | "") {

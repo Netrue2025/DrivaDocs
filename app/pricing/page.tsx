@@ -15,7 +15,12 @@ const PricingEstimator = dynamicImport(() => import("@/components/pricing-estima
 export default async function PricingPage() {
   const dbPrices = await prisma.servicePricing
     .findMany({
-      where: { active: true },
+      where: {
+        OR: [
+          { active: true },
+          { serviceType: "VEHICLE_PAPER_RENEWAL" }
+        ]
+      },
       orderBy: [{ serviceType: "asc" }, { serviceName: "asc" }, { amount: "asc" }]
     })
     .then((rows) =>
@@ -29,7 +34,8 @@ export default async function PricingPage() {
           state: row.state || undefined,
           location: row.location || undefined,
           amount: row.amount,
-          notes: row.notes || undefined
+          notes: row.notes || undefined,
+          active: row.active
         })
       )
     )

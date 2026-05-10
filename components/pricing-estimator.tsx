@@ -1,8 +1,9 @@
 "use client";
 
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { adminVehicleCategories, categoryEngineOptions, defaultRenewalBreakdownItemsForVehicle, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
+import { adminVehicleCategories, categoryEngineOptions, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, renewalBreakdownItemsForVehicle, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
 import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira, splitPayment } from "@/lib/utils";
@@ -98,6 +99,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PHYSICAL_DELIVERY");
   const [otherDocument, setOtherDocument] = useState("");
   const [estimateOpen, setEstimateOpen] = useState(false);
+  const [priceSummaryOpen, setPriceSummaryOpen] = useState(false);
 
   const rules = serviceType ? serviceFieldRules[serviceType] : null;
   const showPreferredStatePlate = serviceType === "NEW_VEHICLE_REGISTRATION";
@@ -147,18 +149,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const effectiveEngineCategory = engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || (vehicleType === "Motorcycle" ? "Motorcycle" : engineCategories[0]);
   const renewalBreakdown = useMemo(() => {
     if (serviceType !== "VEHICLE_PAPER_RENEWAL") return [];
-    const managed = prices
-      .filter((item) =>
-        item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
-        item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL &&
-        item.vehicleType === vehicleType &&
-        sameOption(item.engineCategory, effectiveEngineCategory) &&
-        sameOption(item.usage, usage) &&
-        !item.state &&
-        !item.location
-      )
-      .map((item) => ({ label: item.serviceName, amount: item.amount }));
-    return managed.length ? managed : defaultRenewalBreakdownItemsForVehicle(vehicleType, effectiveEngineCategory, usage);
+    return renewalBreakdownItemsForVehicle(prices, vehicleType, effectiveEngineCategory, usage);
   }, [effectiveEngineCategory, prices, serviceType, usage, vehicleType]);
 
   const delivery = useMemo(() => {
@@ -174,6 +165,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const total = isNegotiated ? 0 : base + deliveryCost;
   const split = splitPayment(total);
   const deliveryPeriod = getServiceDeliveryPeriod(serviceType || undefined);
+  const estimateServiceName = serviceType === "VEHICLE_PAPER_RENEWAL" ? serviceLabels.VEHICLE_PAPER_RENEWAL : servicePrice?.serviceName ?? serviceLabels[serviceType as ServiceType];
   const canEstimate = Boolean(serviceType && otherDocumentReady && preferredStateReady);
   const startUrl = useMemo(() => {
     if (!serviceType) return "/dashboard/requests/new";
@@ -189,6 +181,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
 
   function showEstimate() {
     if (!canEstimate) return;
+    setPriceSummaryOpen(false);
     setEstimateOpen(true);
   }
 
@@ -429,7 +422,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
         <div className="fixed inset-0 z-[80] grid place-items-center bg-ink/70 px-4 py-8 backdrop-blur-sm">
           <aside className="animate-rise max-h-[90vh] w-full max-w-lg overflow-y-auto rounded border border-white/10 bg-ink p-6 text-white shadow-soft">
             <p className="text-sm font-black uppercase text-road">Estimate</p>
-            <h2 className="mt-2 text-2xl font-black">{servicePrice?.serviceName ?? serviceLabels[serviceType]}</h2>
+            <h2 className="mt-2 text-2xl font-black">{estimateServiceName}</h2>
             <div className="mt-6 grid gap-4">
               <Row label="Base service cost" value={isNegotiated ? servicePrice?.notes || "Negotiation based" : formatNaira(base)} />
               <Row label="Delivery cost" value={formatNaira(deliveryCost)} />
@@ -442,6 +435,32 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                 </>
               ) : null}
             </div>
+            {serviceType === "VEHICLE_PAPER_RENEWAL" && renewalBreakdown.length ? (
+              <div className="mt-5 rounded border border-white/15 bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => setPriceSummaryOpen((open) => !open)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-ring"
+                  aria-expanded={priceSummaryOpen}
+                >
+                  <span>
+                    <span className="block text-sm font-black text-white">Document price summary</span>
+                    <span className="mt-1 block text-xs font-semibold text-white/52">{renewalBreakdown.length} items included</span>
+                  </span>
+                  {priceSummaryOpen ? <ChevronDown className="h-5 w-5 shrink-0 text-road" aria-hidden="true" /> : <ChevronRight className="h-5 w-5 shrink-0 text-road" aria-hidden="true" />}
+                </button>
+                {priceSummaryOpen ? (
+                  <div className="grid gap-2 border-t border-white/15 p-4 text-sm">
+                    {renewalBreakdown.map((item) => (
+                      <Row key={item.label} label={item.label} value={formatNaira(item.amount)} />
+                    ))}
+                    <div className="mt-1 border-t border-white/15 pt-3">
+                      <Row label="Documents subtotal" value={formatNaira(base)} strong />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="mt-5 rounded border border-road/25 bg-road/10 p-3 text-sm font-semibold leading-6 text-white/82">
               {deliveryPeriod}
             </div>
@@ -507,8 +526,4 @@ function deliveryOptionsForState(prices: PricingItem[], state: string) {
       amount: item.amount
     }))
     .filter((item, index, source) => source.findIndex((candidate) => candidate.location === item.location) === index);
-}
-
-function sameOption(left?: string | null, right?: string | null) {
-  return (left || "") === (right || "");
 }

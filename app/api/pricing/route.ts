@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const rows = await prisma.servicePricing.findMany({
-      where: { active: true },
+      where: {
+        OR: [
+          { active: true },
+          { serviceType: "VEHICLE_PAPER_RENEWAL" }
+        ]
+      },
       orderBy: [{ serviceName: "asc" }, { amount: "asc" }]
     });
 
@@ -23,7 +28,8 @@ export async function GET() {
           state: row.state || undefined,
           location: row.location || undefined,
           amount: row.amount,
-          notes: row.notes || undefined
+          notes: row.notes || undefined,
+          active: row.active
         })
       );
       return NextResponse.json(mergePricingWithCatalog(prices));

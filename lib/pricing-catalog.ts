@@ -19,6 +19,7 @@ export type PricingItem = {
   location?: string;
   amount: number;
   notes?: string;
+  active?: boolean;
 };
 
 type PricingKeyFields = Pick<PricingItem, "serviceType" | "serviceName" | "vehicleType" | "engineCategory" | "usage" | "state" | "location">;
@@ -387,8 +388,18 @@ export function pricingKey(item: PricingKeyFields) {
 }
 
 export function mergePricingWithCatalog(rows: PricingItem[]) {
-  const byKey = new Map(rows.map((item) => [pricingKey(item), item]));
-  const merged = pricingCatalog.map((item) => byKey.get(pricingKey(item)) ?? item);
+  const activeRows = rows.filter((item) => item.active !== false);
+  const inactiveKeys = new Set(rows.filter((item) => item.active === false).map(pricingKey));
+  const byKey = new Map(activeRows.map((item) => [pricingKey(item), item]));
+  const merged = pricingCatalog
+    .filter((item) => !inactiveKeys.has(pricingKey(item)))
+    .map((item) => byKey.get(pricingKey(item)) ?? item);
   const catalogKeys = new Set(pricingCatalog.map(pricingKey));
-  return [...merged, ...rows.filter((item) => !catalogKeys.has(pricingKey(item)))];
+  const customActiveRows = activeRows.filter((item) => !catalogKeys.has(pricingKey(item)));
+  const inactiveRenewalDocumentRows = rows.filter((item) =>
+    item.active === false &&
+    item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
+    item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL
+  );
+  return [...merged, ...customActiveRows, ...inactiveRenewalDocumentRows];
 }

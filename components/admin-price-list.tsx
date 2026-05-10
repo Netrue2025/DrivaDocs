@@ -731,16 +731,6 @@ function PriceMatrixModal({
                   }}
                   onSave={(item) => void saveBreakdownPrice(group, item)}
                   onDelete={(item) => void deleteBreakdownPrice(group, item)}
-                  totalEditing={editingMatrixId === group.totalRow.id}
-                  onEditTotal={() => {
-                    setEditingBreakdownId(null);
-                    setEditingMatrixId(group.totalRow.id);
-                  }}
-                  onCancelTotal={() => {
-                    setDrafts((current) => ({ ...current, [group.totalRow.id]: String(group.totalRow.amount || "") }));
-                    setEditingMatrixId(null);
-                  }}
-                  onSaveTotal={() => void saveMatrixRow(group.totalRow)}
                 />
               ))}
             </div>
@@ -854,11 +844,7 @@ function BreakdownGroupEditor({
   onEdit,
   onCancelEdit,
   onSave,
-  onDelete,
-  totalEditing,
-  onEditTotal,
-  onCancelTotal,
-  onSaveTotal
+  onDelete
 }: {
   group: PriceBreakdownGroup;
   drafts: Record<string, string>;
@@ -878,17 +864,15 @@ function BreakdownGroupEditor({
   onCancelEdit: (item: AdminPrice) => void;
   onSave: (item: AdminPrice) => void;
   onDelete: (item: AdminPrice) => void;
-  totalEditing: boolean;
-  onEditTotal: () => void;
-  onCancelTotal: () => void;
-  onSaveTotal: () => void;
 }) {
+  const computedTotal = group.rows.reduce((sum, item) => sum + amountFromDraft(drafts[item.id] || String(item.amount || 0)), 0);
+
   return (
     <div className="rounded border border-brand-900/10 bg-brand-50/45 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="break-words text-xs font-black uppercase text-brand-700">{group.title}</p>
-          <p className="mt-1 text-xs font-semibold text-ink/50">Total: {formatNaira(amountFromDraft(drafts[group.totalRow.id] || String(group.totalRow.amount || 0)))}</p>
+          <p className="mt-1 text-xs font-semibold text-ink/50">Total: {formatNaira(computedTotal)}</p>
         </div>
         <button
           type="button"
@@ -1019,63 +1003,13 @@ function BreakdownGroupEditor({
             </div>
           );
         })}
-        {totalEditing ? (
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              onSaveTotal();
-            }}
-            className="mt-2 grid gap-2 rounded border border-brand-900/10 bg-white p-2 transition sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-center"
-          >
-            <span className="font-black text-ink">Total</span>
-            <input
-              type="number"
-              min={0}
-              value={drafts[group.totalRow.id] || ""}
-              onChange={(event) => onDraft(group.totalRow.id, event.target.value)}
-              className="min-h-10 min-w-0 rounded border border-brand-900/15 bg-white px-3 text-sm font-black text-ink focus-ring"
-              aria-label={`${group.title} total price`}
-              autoFocus
-            />
-            <span className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={isBusy}
-                className="grid h-10 w-10 place-items-center rounded bg-brand-700 text-white disabled:opacity-50"
-                aria-label={`Save ${group.title} total`}
-                title="Save"
-              >
-                {busyAction === `matrix:${group.totalRow.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
-              </button>
-              <button
-                type="button"
-                onClick={onCancelTotal}
-                className="grid h-10 w-10 place-items-center rounded border border-brand-900/10 bg-white text-ink/70"
-                aria-label={`Cancel ${group.title} total edit`}
-                title="Cancel"
-              >
-                <X size={16} />
-              </button>
-            </span>
-          </form>
-        ) : (
-          <div className="mt-2 flex items-center justify-between gap-3 rounded border border-brand-900/10 bg-white p-2">
-            <span className="font-black text-ink">Total</span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className="font-black text-brand-800">{formatNaira(amountFromDraft(drafts[group.totalRow.id] || String(group.totalRow.amount || 0)))}</span>
-              <button
-                type="button"
-                onClick={onEditTotal}
-                disabled={isBusy}
-                className="grid h-8 w-8 place-items-center rounded text-brand-700 transition hover:bg-brand-50 focus-ring disabled:opacity-50"
-                aria-label={`Edit ${group.title} total`}
-                title="Edit total"
-              >
-                <Edit3 size={15} />
-              </button>
-            </span>
-          </div>
-        )}
+        <div className="mt-2 flex items-center justify-between gap-3 rounded border border-brand-900/10 bg-white p-2">
+          <span className="font-black text-ink">Total</span>
+          <span className="flex shrink-0 items-center gap-2">
+            <span className="font-black text-brand-800">{formatNaira(computedTotal)}</span>
+            <span className="rounded bg-brand-50 px-2 py-1 text-[11px] font-black uppercase text-brand-700">Auto</span>
+          </span>
+        </div>
       </div>
     </div>
   );

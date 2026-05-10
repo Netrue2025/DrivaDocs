@@ -1,4 +1,4 @@
-import { pricingCatalog, vehiclePaperRenewalBreakdowns, type PricingItem } from "@/lib/pricing-catalog";
+import { pricingCatalog, serviceLabels, vehiclePaperRenewalBreakdowns, type PricingItem } from "@/lib/pricing-catalog";
 
 export type FleetPricingRow = {
   serviceType: string;
@@ -7,8 +7,10 @@ export type FleetPricingRow = {
   engineCategory?: string | null;
   usage?: string | null;
   state?: string | null;
+  location?: string | null;
   amount: number;
   notes?: string | null;
+  active?: boolean | null;
 };
 
 export const adminVehicleCategories = ["Motorcycle", "Tricycle", "Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"] as const;
@@ -43,7 +45,7 @@ export function resolveFleetPrice(
   usage?: string | null,
   state = "Lagos"
 ) {
-  const source = rows.length ? rows : pricingCatalog.filter((item) => item.serviceType === serviceType);
+  const source = rows.length ? rows.filter((item) => item.active !== false) : pricingCatalog.filter((item) => item.serviceType === serviceType);
   const matchingService = source.filter((item) => item.serviceType === serviceType);
   const candidates = fleetPricingVehicleCandidates(serviceType, vehicleType, engineCategory, usage);
   const preferredUsage = normalize(usage) || "private";
@@ -61,12 +63,14 @@ export function resolveFleetPrice(
   }
 
   if (serviceType === "VEHICLE_PAPER_RENEWAL") {
+    const renewalTotals = matchingService.filter((item) => item.serviceName === serviceLabels.VEHICLE_PAPER_RENEWAL);
+    const renewalRows = renewalTotals.length ? renewalTotals : matchingService;
     return (
-      findByCandidates(matchingService, candidates, { emptyState: true, usage: preferredUsage, engineCategory, exactBroad: true }) ??
-      findByCandidates(matchingService, candidates, { emptyState: true, engineCategory, exactBroad: true }) ??
-      findByCandidates(matchingService, candidates, { emptyState: true, emptyEngineCategory: true, emptyUsage: true }) ??
-      findByCandidates(matchingService, candidates) ??
-      matchingService[0]
+      findByCandidates(renewalRows, candidates, { emptyState: true, usage: preferredUsage, engineCategory, exactBroad: true }) ??
+      findByCandidates(renewalRows, candidates, { emptyState: true, engineCategory, exactBroad: true }) ??
+      findByCandidates(renewalRows, candidates, { emptyState: true, emptyEngineCategory: true, emptyUsage: true }) ??
+      findByCandidates(renewalRows, candidates) ??
+      renewalRows[0]
     );
   }
 
@@ -144,6 +148,7 @@ export function engineOptionsForVehicle(
   const serviceTypes = Array.isArray(serviceType) ? serviceType : serviceType ? [serviceType] : [];
   const managed = rows
     .filter((item) =>
+      item.active !== false &&
       (!serviceTypes.length || serviceTypes.includes(item.serviceType)) &&
       normalize(item.vehicleType) === normalize(vehicleType) &&
       Boolean(item.engineCategory)
@@ -160,6 +165,7 @@ export function usageOptionsForVehicle(
   const serviceTypes = Array.isArray(serviceType) ? serviceType : serviceType ? [serviceType] : [];
   const managed = rows
     .filter((item) =>
+      item.active !== false &&
       (!serviceTypes.length || serviceTypes.includes(item.serviceType)) &&
       normalize(item.vehicleType) === normalize(vehicleType) &&
       Boolean(item.usage)
@@ -170,7 +176,7 @@ export function usageOptionsForVehicle(
 
 export function stateOptionsForService(rows: FleetPricingRow[], serviceType: string, fallback: readonly string[] = statePriceOptions) {
   const managed = rows
-    .filter((item) => item.serviceType === serviceType && Boolean(item.state))
+    .filter((item) => item.active !== false && item.serviceType === serviceType && Boolean(item.state))
     .map((item) => item.state || "");
   return uniqueOptions([...managed, ...fallback]);
 }
@@ -179,6 +185,37 @@ export function defaultRenewalBreakdownItemsForVehicle(vehicleType?: string | nu
   if (vehicleType === "Pickup") return pickupRenewalBreakdowns;
   const key = legacyRenewalVehicleType(vehicleType, engineCategory, usage);
   return vehiclePaperRenewalBreakdowns[key as keyof typeof vehiclePaperRenewalBreakdowns] || [];
+}
+
+export function renewalBreakdownItemsForVehicle(
+  rows: FleetPricingRow[],
+  vehicleType?: string | null,
+  engineCategory?: string | null,
+  usage?: string | null
+) {
+  const defaults = defaultRenewalBreakdownItemsForVehicle(vehicleType, engineCategory, usage);
+  const candidates = fleetPricingVehicleCandidates("VEHICLE_PAPER_RENEWAL", vehicleType || undefined, engineCategory, usage);
+  const preferredUsage = normalize(usage) || "private";
+  const matchingManagedRows = rows
+    .filter((item) =>
+      item.serviceType === "VEHICLE_PAPER_RENEWAL" &&
+      item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL &&
+      renewalItemMatches(item, candidates, engineCategory, preferredUsage)
+    );
+  const excludedLabels = new Set(matchingManagedRows.filter((item) => item.active === false).map((item) => normalize(item.serviceName)));
+  const managed = matchingManagedRows
+    .filter((item) => item.active !== false)
+    .map((item) => ({ label: item.serviceName, amount: item.amount }));
+
+  if (!defaults.length) return uniqueRenewalItems(managed);
+
+  const managedByLabel = new Map(managed.map((item) => [normalize(item.label), item]));
+  const mergedDefaults = defaults
+    .filter((item) => !excludedLabels.has(normalize(item.label)))
+    .map((item) => managedByLabel.get(normalize(item.label)) ?? item);
+  const defaultLabels = new Set(defaults.map((item) => normalize(item.label)));
+  const customItems = managed.filter((item) => !defaultLabels.has(normalize(item.label)));
+  return uniqueRenewalItems([...mergedDefaults, ...customItems]);
 }
 
 const pickupRenewalBreakdowns = [
@@ -206,6 +243,29 @@ function legacyRenewalVehicleType(vehicleType?: string | null, engineCategory?: 
 
 function uniqueOptions(options: readonly string[]) {
   return Array.from(new Set(options.map((item) => item.trim()).filter(Boolean)));
+}
+
+function renewalItemMatches(
+  item: FleetPricingRow,
+  candidates: string[],
+  engineCategory?: string | null,
+  preferredUsage = "private"
+) {
+  if (item.state || item.location) return false;
+  if (!item.vehicleType || !candidates.includes(normalize(item.vehicleType))) return false;
+  if (item.engineCategory && engineCategory && normalize(item.engineCategory) !== normalize(engineCategory)) return false;
+  if (item.usage && !["privatecommercial", preferredUsage].includes(normalize(item.usage))) return false;
+  return true;
+}
+
+function uniqueRenewalItems(items: { label: string; amount: number }[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalize(item.label);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalize(value?: string | null) {

@@ -49,7 +49,12 @@ export default async function NewRequestPage({
   let initialDraft: InitialServiceDraft | undefined;
   const priceRows = await prisma.servicePricing
     .findMany({
-      where: { active: true },
+      where: {
+        OR: [
+          { active: true },
+          { serviceType: "VEHICLE_PAPER_RENEWAL" }
+        ]
+      },
       orderBy: [{ serviceType: "asc" }, { serviceName: "asc" }, { amount: "asc" }]
     })
     .then((rows) =>
@@ -63,7 +68,8 @@ export default async function NewRequestPage({
           state: row.state || undefined,
           location: row.location || undefined,
           amount: row.amount,
-          notes: row.notes || undefined
+          notes: row.notes || undefined,
+          active: row.active
         })
       )
     )
