@@ -40,6 +40,7 @@ const serviceTypes = Object.keys(serviceRequirements) as ServiceType[];
 const cacheKey = "DrivaDocs:new-service:draft";
 const maxFileSize = 5 * 1024 * 1024;
 const preferredPlateStates = [...newVehicleRegistrationLocations, "Others State"];
+const optionalRenewalDocumentFields = ["roadWorthinessCertificate", "proofOfOwnership", "insurancePolicy"];
 const deliveryMethods: { value: DeliveryMethod; label: string }[] = [
   { value: "PHYSICAL_DELIVERY", label: "Physical delivery" },
   { value: "SCAN_TO_ME", label: "Scan to me (online)" },
@@ -90,6 +91,7 @@ export function ServiceRequestForm({
   const [requestId, setRequestId] = useState(initialDraft?.id || "");
   const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("UPFRONT_75");
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [optionalRenewalDocumentsOpen, setOptionalRenewalDocumentsOpen] = useState(false);
   const [exitPrompt, setExitPrompt] = useState<{ href: string } | null>(null);
   const [success, setSuccess] = useState<{ message: string; requestId: string; amount: number } | null>(null);
   const [status, setStatus] = useState("");
@@ -99,6 +101,12 @@ export function ServiceRequestForm({
   const allowExitRef = useRef(false);
 
   const requirements = serviceType ? serviceRequirements[serviceType] : [];
+  const primaryRequirements = serviceType === "VEHICLE_PAPER_RENEWAL"
+    ? requirements.filter((field) => !optionalRenewalDocumentFields.includes(field.name))
+    : requirements;
+  const optionalRenewalRequirements = serviceType === "VEHICLE_PAPER_RENEWAL"
+    ? requirements.filter((field) => optionalRenewalDocumentFields.includes(field.name))
+    : [];
   const engineOptions = useMemo(() => engineOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
   const usageOptions = useMemo(() => usageOptionsForVehicle(prices, serviceType || undefined, vehicleType), [prices, serviceType, vehicleType]);
   const preferredPlateOptions = useMemo(() => [...stateOptionsForService(prices, "NEW_VEHICLE_REGISTRATION", newVehicleRegistrationLocations), "Others State"], [prices]);
@@ -636,7 +644,7 @@ export function ServiceRequestForm({
               ) : null}
             </>
           ) : null}
-          {requirements.map((field) => (
+          {primaryRequirements.map((field) => (
             <RequirementControl
               key={field.name}
               field={field}
@@ -647,6 +655,43 @@ export function ServiceRequestForm({
               onFile={handleFileChange}
             />
           ))}
+          {optionalRenewalRequirements.length ? (
+            <div className="rounded border border-brand-900/10 bg-brand-50/45 md:col-span-2">
+              <button
+                type="button"
+                onClick={() => setOptionalRenewalDocumentsOpen((open) => !open)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left focus-ring"
+                aria-expanded={optionalRenewalDocumentsOpen}
+              >
+                <span>
+                  <span className="block text-sm font-black text-ink">Optional document uploads</span>
+                  <span className="mt-1 block text-xs font-semibold text-ink/52">
+                    Road worthiness, proof of ownership and insurance certificate
+                  </span>
+                </span>
+                {optionalRenewalDocumentsOpen ? (
+                  <ChevronDown className="h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
+                )}
+              </button>
+              {optionalRenewalDocumentsOpen ? (
+                <div className="grid gap-4 border-t border-brand-900/10 p-4 md:grid-cols-2">
+                  {optionalRenewalRequirements.map((field) => (
+                    <RequirementControl
+                      key={field.name}
+                      field={field}
+                      value={values[field.name] || ""}
+                      file={fileMeta[field.name]}
+                      hasLiveFile={Boolean(files[field.name])}
+                      onValue={updateValue}
+                      onFile={handleFileChange}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -857,11 +902,21 @@ function RequirementControl({
   onFile: (field: RequirementField, file?: File) => void;
 }) {
   const accept = field.accept === "image" ? "image/png,image/jpeg" : "application/pdf,image/png,image/jpeg";
+  const requirementLabel = (
+    <span className="flex flex-wrap items-center gap-2">
+      <span>{field.label}</span>
+      {field.required ? (
+        <span className="text-red-700">*</span>
+      ) : (
+        <span className="rounded bg-brand-50 px-2 py-0.5 text-[11px] font-black uppercase text-ink/48">Optional</span>
+      )}
+    </span>
+  );
 
   if (field.type === "file") {
     return (
       <label className="grid min-w-0 gap-2 rounded border border-brand-900/10 bg-brand-50/45 p-4 text-sm font-bold text-ink/75">
-        {field.label} {field.required ? <span className="text-red-700">*</span> : null}
+        {requirementLabel}
         <input
           type="file"
           accept={accept}
@@ -880,7 +935,7 @@ function RequirementControl({
 
   return (
     <label className={`grid min-w-0 gap-2 text-sm font-bold text-ink/75 ${field.type === "textarea" ? "md:col-span-2" : ""}`}>
-      {field.label} {field.required ? <span className="text-red-700">*</span> : null}
+      {requirementLabel}
       {field.name === "permitType" ? (
         <select
           value={value}

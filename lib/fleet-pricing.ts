@@ -14,6 +14,17 @@ export type FleetPricingRow = {
 };
 
 export const adminVehicleCategories = ["Motorcycle", "Tricycle", "Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"] as const;
+const renewalEngineOptions: Record<string, string[]> = {
+  Car: ["0.1L - 1.59L", "1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"],
+  SUV: ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"],
+  Pickup: ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"],
+  Bus: ["3.1L - 12.0L"]
+};
+const newVehicleRegistrationEngineOptions: Record<string, string[]> = {
+  Car: ["0.1L - 1.59L", "1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"],
+  SUV: ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"],
+  Bus: ["1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"]
+};
 export const categoryEngineOptions: Record<string, string[]> = {
   Motorcycle: ["Motorcycle"],
   Tricycle: ["Tricycle"],
@@ -104,23 +115,59 @@ function fleetPricingVehicleCandidates(serviceType: string, vehicleType?: string
   const engine = normalize(engineCategory);
   const privateUse = normalize(usage) !== "commercial";
   const useSuffix = privateUse ? "private" : "commercial";
-  const carRange = engine.includes("21") || engine.includes("30") ? "21" : "16";
+  const carRange = engine.includes("31") || engine.includes("120")
+    ? "31"
+    : engine.includes("21") || engine.includes("30")
+      ? "21"
+      : "16";
   const categories: string[] = [];
 
   if (type) categories.push(type);
   if (type === "motorcycle") categories.push("motorcycle");
   if (type === "car") {
     if (serviceType === "NEW_VEHICLE_REGISTRATION") {
-      categories.push(carRange === "21" ? "salooncar2130l" : "salooncar1020l");
+      categories.push(
+        carRange === "31"
+          ? "suvjeepsalooncarpickup31120l"
+          : carRange === "21"
+            ? "salooncar2130l"
+            : "salooncar1020l"
+      );
     } else {
-      categories.push(carRange === "21" ? `salooncar2130l${useSuffix}` : `salooncar1620l${useSuffix}`);
+      categories.push(
+        carRange === "31"
+          ? `suvjeepsalooncarpickup31120l${useSuffix}`
+          : carRange === "21"
+            ? `salooncar2130l${useSuffix}`
+            : `salooncar1620l${useSuffix}`
+      );
     }
   }
   if (type === "suv" || type === "pickup") {
-    categories.push(serviceType === "NEW_VEHICLE_REGISTRATION" ? "suvjeepsalooncarpickup31120l" : `suvjeepsalooncarpickup31120l${useSuffix}`);
+    if (serviceType === "VEHICLE_PAPER_RENEWAL" && type === "suv") {
+      categories.push(
+        carRange === "31"
+          ? `suvjeepsalooncarpickup31120l${useSuffix}`
+          : carRange === "21"
+            ? `salooncar2130l${useSuffix}`
+            : `salooncar1620l${useSuffix}`
+      );
+    } else {
+      categories.push(serviceType === "NEW_VEHICLE_REGISTRATION" ? "suvjeepsalooncarpickup31120l" : `suvjeepsalooncarpickup31120l${useSuffix}`);
+    }
   }
   if (type === "bus") {
-    categories.push(serviceType === "NEW_VEHICLE_REGISTRATION" ? "buscoasterbus31120l" : `buscoasterbus31120l${useSuffix}`);
+    if (serviceType === "NEW_VEHICLE_REGISTRATION") {
+      categories.push(
+        carRange === "31"
+          ? "buscoasterbus31120l"
+          : carRange === "21"
+            ? "salooncar2130l"
+            : "salooncar1020l"
+      );
+    } else {
+      categories.push(`buscoasterbus31120l${useSuffix}`);
+    }
   }
   if (type === "lorry") categories.push("lorrytippertractor31120l");
   if (type === "truck") categories.push("tankertruck31120l");
@@ -136,7 +183,7 @@ export function needsEngineCategory(vehicleType?: string) {
 export function needsUsageCategory(serviceType: string, vehicleType?: string) {
   const normalized = normalize(vehicleType);
   if (serviceType === "NEW_VEHICLE_REGISTRATION") return ["car", "suv", "bus", "pickup"].includes(normalized);
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") return ["car", "suv", "bus", "pickup"].includes(normalized);
+  if (serviceType === "VEHICLE_PAPER_RENEWAL") return ["car", "suv", "pickup"].includes(normalized);
   return false;
 }
 
@@ -146,6 +193,8 @@ export function engineOptionsForVehicle(
   vehicleType?: string
 ) {
   const serviceTypes = Array.isArray(serviceType) ? serviceType : serviceType ? [serviceType] : [];
+  const fallback = serviceSpecificEngineOptions(serviceTypes, vehicleType) || categoryEngineOptions[vehicleType || ""] || [];
+  if (serviceSpecificEngineOptions(serviceTypes, vehicleType)) return fallback;
   const managed = rows
     .filter((item) =>
       item.active !== false &&
@@ -154,7 +203,7 @@ export function engineOptionsForVehicle(
       Boolean(item.engineCategory)
     )
     .map((item) => item.engineCategory || "");
-  return uniqueOptions([...managed, ...(categoryEngineOptions[vehicleType || ""] || [])]);
+  return uniqueOptions([...managed, ...fallback]);
 }
 
 export function usageOptionsForVehicle(
@@ -233,8 +282,16 @@ function legacyRenewalVehicleType(vehicleType?: string | null, engineCategory?: 
   const engine = engineCategory || "";
   if (type === "Motorcycle") return "MOTORCYCLE";
   if (type === "Tricycle") return "TRICYCLE";
-  if (type === "Car") return engine.includes("2.1") ? `SALOON CAR (2.1 - 3.0L) ${use}` : `SALOON CAR (1.6 - 2.0L) ${use}`;
-  if (type === "SUV" || type === "Pickup") return `SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) ${use}`;
+  if (type === "Car") {
+    if (engine.includes("3.1")) return `SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) ${use}`;
+    return engine.includes("2.1") ? `SALOON CAR (2.1 - 3.0L) ${use}` : `SALOON CAR (1.6 - 2.0L) ${use}`;
+  }
+  if (type === "SUV") {
+    if (engine.includes("1.6")) return `SALOON CAR (1.6 - 2.0L) ${use}`;
+    if (engine.includes("2.1")) return `SALOON CAR (2.1 - 3.0L) ${use}`;
+    return `SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) ${use}`;
+  }
+  if (type === "Pickup") return `SUV/JEEP/SALOON CAR/PICKUP (3.1 - 12.0L) ${use}`;
   if (type === "Bus") return `BUS/COASTER BUS (3.1 - 12.0L) ${use}`;
   if (type === "Lorry") return "LORRY/TIPPER/TRACTOR (3.1 - 12.0L)";
   if (type === "Truck") return "TANKER/TRUCK (3.1 - 12.0L)";
@@ -243,6 +300,12 @@ function legacyRenewalVehicleType(vehicleType?: string | null, engineCategory?: 
 
 function uniqueOptions(options: readonly string[]) {
   return Array.from(new Set(options.map((item) => item.trim()).filter(Boolean)));
+}
+
+function serviceSpecificEngineOptions(serviceTypes: string[], vehicleType?: string) {
+  if (serviceTypes.includes("VEHICLE_PAPER_RENEWAL")) return renewalEngineOptions[vehicleType || ""];
+  if (serviceTypes.includes("NEW_VEHICLE_REGISTRATION")) return newVehicleRegistrationEngineOptions[vehicleType || ""];
+  return undefined;
 }
 
 function renewalItemMatches(

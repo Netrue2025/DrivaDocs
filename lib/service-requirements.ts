@@ -14,10 +14,10 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "roadWorthinessCertificate", label: "Road worthiness certificate", type: "file", accept: "document" },
     { name: "proofOfOwnership", label: "Proof of ownership", type: "file", accept: "document" },
     { name: "insurancePolicy", label: "Insurance certificate", type: "file", accept: "document" },
-    { name: "documentName", label: "Name on document" },
-    { name: "registrationNumber", label: "Registration number" },
-    { name: "documentAddress", label: "Address on document", type: "textarea" },
-    { name: "documentPhone", label: "Phone number on document" }
+    { name: "documentName", label: "Name on document", required: true },
+    { name: "registrationNumber", label: "Registration number", required: true },
+    { name: "documentAddress", label: "Address on document", type: "textarea", required: true },
+    { name: "documentPhone", label: "Phone number on document", required: true }
   ],
   NEW_VEHICLE_REGISTRATION: [
     { name: "customPaper", label: "Custom paper containing chassis number", type: "file", accept: "document", required: true },

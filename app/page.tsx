@@ -13,6 +13,7 @@ import {
   Truck
 } from "lucide-react";
 import Image from "next/image";
+import { Suspense } from "react";
 import { HomeHeroMedia } from "@/components/home-hero-media";
 import { ButtonLink } from "@/components/ui/button-link";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -128,30 +129,54 @@ const partners = [
   }
 ];
 
+const fallbackNewsItems = [
+  { title: "Fast vehicle paper renewal with home and office delivery", link: null },
+  { title: "Register new vehicles and track every step from your dashboard", link: null },
+  { title: "Fleet accounts can manage renewals, drivers, reminders, and documents in one place", link: null }
+];
+
 const homeContentTimeoutMs = 1200;
 
-async function getHomeContent() {
-  const [managedFaqs, managedTestimonials] = await withTimeout(
-    Promise.all([
-      prisma.faqItem.findMany({
-        where: { published: true },
-        orderBy: [{ sortOrder: "asc" }, { question: "asc" }],
-        select: { question: true, answer: true }
-      }).catch(() => []),
-      prisma.testimonial.findMany({
-        where: { published: true },
-        orderBy: { createdAt: "desc" },
-        select: { name: true, role: true, company: true, quote: true, rating: true }
-      }).catch(() => [])
-    ]),
-    [[], []] as const,
+async function getFaqs() {
+  const managedFaqs = await withTimeout(
+    prisma.faqItem.findMany({
+      where: { published: true },
+      orderBy: [{ sortOrder: "asc" }, { question: "asc" }],
+      select: { question: true, answer: true }
+    }).catch(() => []),
+    [],
     homeContentTimeoutMs
   );
 
-  return {
-    faqs: managedFaqs.length ? managedFaqs : fallbackFaqs,
-    testimonials: managedTestimonials.length ? managedTestimonials : fallbackTestimonials
-  };
+  return managedFaqs.length ? managedFaqs : fallbackFaqs;
+}
+
+async function getTestimonials() {
+  const managedTestimonials = await withTimeout(
+    prisma.testimonial.findMany({
+      where: { published: true },
+      orderBy: { createdAt: "desc" },
+      select: { name: true, role: true, company: true, quote: true, rating: true }
+    }).catch(() => []),
+    [],
+    homeContentTimeoutMs
+  );
+
+  return managedTestimonials.length ? managedTestimonials : fallbackTestimonials;
+}
+
+async function getNewsItems() {
+  const managedNewsItems = await withTimeout(
+    prisma.newsItem.findMany({
+      where: { published: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: { title: true, link: true }
+    }).catch(() => []),
+    [],
+    homeContentTimeoutMs
+  );
+
+  return managedNewsItems.length ? managedNewsItems : fallbackNewsItems;
 }
 
 function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number) {
@@ -163,9 +188,7 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs: number) {
   ]);
 }
 
-export default async function HomePage() {
-  const { faqs, testimonials } = await getHomeContent();
-
+export default function HomePage() {
   return (
     <>
       <section className="relative min-h-[620px] overflow-hidden bg-ink text-white">
@@ -198,6 +221,10 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <Suspense fallback={<NewsTickerSkeleton />}>
+        <NewsTickerSection />
+      </Suspense>
 
       <ScrollReveal>
       <section id="how-it-works" className="section-grid scroll-mt-24 py-16">
@@ -323,7 +350,9 @@ export default async function HomePage() {
       <section className="section-muted-map py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading eyebrow="Testimonials" title="Trusted by individuals and fleet operators" />
-          <TestimonialMarquee testimonials={testimonials} />
+          <Suspense fallback={<TestimonialsSkeleton />}>
+            <TestimonialsSection />
+          </Suspense>
         </div>
       </section>
       </ScrollReveal>
@@ -338,14 +367,9 @@ export default async function HomePage() {
               <ButtonLink href="/contact" variant="ghost" motion={false}>Talk to support</ButtonLink>
             </div>
           </div>
-          <div className="grid gap-4">
-            {faqs.map((faq) => (
-              <details key={faq.question} className="interactive-lift rounded border border-brand-900/10 bg-white/95 p-5 shadow-sm backdrop-blur">
-                <summary className="cursor-pointer font-black">{faq.question}</summary>
-                <p className="mt-3 leading-7 text-ink/65">{faq.answer}</p>
-              </details>
-            ))}
-          </div>
+          <Suspense fallback={<FaqSkeleton />}>
+            <FaqSection />
+          </Suspense>
         </div>
       </section>
       </ScrollReveal>
@@ -367,5 +391,107 @@ export default async function HomePage() {
       </section>
       </ScrollReveal>
     </>
+  );
+}
+
+async function TestimonialsSection() {
+  const testimonials = await getTestimonials();
+  return <TestimonialMarquee testimonials={testimonials} />;
+}
+
+async function NewsTickerSection() {
+  const newsItems = await getNewsItems();
+  return <NewsTicker items={newsItems} />;
+}
+
+function NewsTicker({ items }: { items: { title: string; link: string | null }[] }) {
+  const tickerItems = [...items, ...items];
+
+  return (
+    <section className="overflow-hidden border-y border-brand-900/10 bg-road text-ink" aria-label="DrivaDocs news">
+      <div className="flex min-h-14 items-center gap-4">
+        <div className="z-10 grid min-h-14 shrink-0 place-items-center bg-brand-800 px-4 text-xs font-black uppercase text-white sm:px-6">
+          News
+        </div>
+        <div className="news-ticker min-w-0 flex-1">
+          <div className="news-ticker-track">
+            {tickerItems.map((item, index) => {
+              const content = (
+                <>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-brand-800" aria-hidden="true" />
+                  <span>{item.title}</span>
+                </>
+              );
+
+              return item.link ? (
+                <a key={`${item.title}-${index}`} href={item.link} className="news-ticker-item focus-ring">
+                  {content}
+                </a>
+              ) : (
+                <span key={`${item.title}-${index}`} className="news-ticker-item">
+                  {content}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+async function FaqSection() {
+  const faqs = await getFaqs();
+
+  return (
+    <div className="grid gap-4">
+      {faqs.map((faq) => (
+        <details key={faq.question} className="interactive-lift rounded border border-brand-900/10 bg-white/95 p-5 shadow-sm backdrop-blur">
+          <summary className="cursor-pointer font-black">{faq.question}</summary>
+          <p className="mt-3 leading-7 text-ink/65">{faq.answer}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function NewsTickerSkeleton() {
+  return (
+    <section className="border-y border-brand-900/10 bg-road" aria-label="Loading news">
+      <div className="flex min-h-14 items-center gap-4">
+        <div className="grid min-h-14 w-20 place-items-center bg-brand-800 px-4 text-xs font-black uppercase text-white">News</div>
+        <div className="h-4 w-3/4 animate-pulse rounded bg-brand-900/15" />
+      </div>
+    </section>
+  );
+}
+
+function TestimonialsSkeleton() {
+  return (
+    <div className="mt-8 grid gap-4 py-6 md:grid-cols-3" aria-label="Loading testimonials">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="rounded border border-brand-900/10 bg-white p-5">
+          <div className="h-4 w-11/12 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-3 h-4 w-9/12 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-3 h-4 w-10/12 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-6 h-4 w-32 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-2 h-3 w-24 animate-pulse rounded bg-brand-900/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FaqSkeleton() {
+  return (
+    <div className="grid gap-4" aria-label="Loading FAQ">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="rounded border border-brand-900/10 bg-white/95 p-5 shadow-sm backdrop-blur">
+          <div className="h-5 w-8/12 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-4 h-4 w-11/12 animate-pulse rounded bg-brand-900/10" />
+          <div className="mt-3 h-4 w-7/12 animate-pulse rounded bg-brand-900/10" />
+        </div>
+      ))}
+    </div>
   );
 }

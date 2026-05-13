@@ -9,7 +9,7 @@ const localHeroVideo = "/videos/drivadocs-hero-fallback.mp4";
 
 export function HomeHeroMedia() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoSrc, setVideoSrc] = useState(remoteHeroVideo);
+  const [videoSrc, setVideoSrc] = useState("");
   const [playing, setPlaying] = useState(false);
 
   const playVideo = useCallback(() => {
@@ -22,8 +22,16 @@ export function HomeHeroMedia() {
   }, []);
 
   useEffect(() => {
-    playVideo();
-  }, [playVideo]);
+    const timer = window.setTimeout(() => {
+      setVideoSrc(remoteHeroVideo);
+    }, 10000);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (videoSrc) playVideo();
+  }, [playVideo, videoSrc]);
 
   return (
     <>
@@ -35,26 +43,28 @@ export function HomeHeroMedia() {
         sizes="100vw"
         className={`absolute inset-0 object-cover object-center transition-opacity duration-700 ${playing ? "opacity-0" : "opacity-100"}`}
       />
-      <video
-        key={videoSrc}
-        ref={videoRef}
-        src={videoSrc}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        poster={fallbackHeroImage}
-        onLoadedData={playVideo}
-        onCanPlay={playVideo}
-        onPlaying={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onError={() => {
-          setPlaying(false);
-          if (videoSrc !== localHeroVideo) setVideoSrc(localHeroVideo);
-        }}
-        className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${playing ? "opacity-100" : "opacity-0"}`}
-      />
+      {videoSrc ? (
+        <video
+          key={videoSrc}
+          ref={videoRef}
+          src={videoSrc}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          poster={fallbackHeroImage}
+          onLoadedData={playVideo}
+          onCanPlay={playVideo}
+          onPlaying={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onError={() => {
+            setPlaying(false);
+            if (videoSrc !== localHeroVideo) setVideoSrc(localHeroVideo);
+          }}
+          className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ${playing ? "opacity-100" : "opacity-0"}`}
+        />
+      ) : null}
     </>
   );
 }

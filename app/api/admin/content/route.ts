@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 
 const contentSchema = z.object({
   action: z.enum(["create", "update", "delete"]),
-  type: z.enum(["testimonial", "faq"]),
+  type: z.enum(["testimonial", "faq", "news"]),
   id: z.string().optional(),
   published: z.union([z.literal("true"), z.boolean()]).optional(),
+  title: z.string().optional(),
+  link: z.string().optional(),
   name: z.string().optional(),
   role: z.string().optional(),
   company: z.string().optional(),
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
     if (!data.id) return NextResponse.json({ error: "Missing item id" }, { status: 400 });
     if (data.type === "testimonial") {
       await prisma.testimonial.delete({ where: { id: data.id } });
+    } else if (data.type === "news") {
+      await prisma.newsItem.delete({ where: { id: data.id } });
     } else {
       await prisma.faqItem.delete({ where: { id: data.id } });
     }
@@ -67,6 +71,22 @@ export async function POST(request: Request) {
     const item = data.action === "create"
       ? await prisma.testimonial.create({ data: payload })
       : await prisma.testimonial.update({ where: { id: data.id as string }, data: payload });
+    return NextResponse.json(item);
+  }
+
+  if (data.type === "news") {
+    if (!data.title) {
+      return NextResponse.json({ error: "News title is required" }, { status: 400 });
+    }
+    const payload = {
+      title: data.title.trim(),
+      link: data.link?.trim() || null,
+      sortOrder: data.sortOrder || 0,
+      published
+    };
+    const item = data.action === "create"
+      ? await prisma.newsItem.create({ data: payload })
+      : await prisma.newsItem.update({ where: { id: data.id as string }, data: payload });
     return NextResponse.json(item);
   }
 

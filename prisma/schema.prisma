@@ -362,6 +362,16 @@ model FaqItem {
   sortOrder   Int      @default(0)
 }
 
+model NewsItem {
+  id          String   @id @default(cuid())
+  title       String
+  link        String?
+  published   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model SupportTicket {
   id          String              @id @default(cuid())
   ticketNo    String              @unique

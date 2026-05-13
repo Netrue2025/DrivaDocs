@@ -23,6 +23,14 @@ type FaqRow = {
   published: boolean;
 };
 
+type NewsRow = {
+  id: string;
+  title: string;
+  link: string | null;
+  sortOrder: number;
+  published: boolean;
+};
+
 type Status = {
   tone: "success" | "error";
   message: string;
@@ -30,18 +38,22 @@ type Status = {
 
 export function AdminContentManager({
   testimonials,
-  faqs
+  faqs,
+  newsItems
 }: {
   testimonials: TestimonialRow[];
   faqs: FaqRow[];
+  newsItems: NewsRow[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
   const [testimonialsOpen, setTestimonialsOpen] = useState(false);
   const [faqsOpen, setFaqsOpen] = useState(true);
+  const [newsOpen, setNewsOpen] = useState(true);
   const [showNewTestimonial, setShowNewTestimonial] = useState(false);
   const [showNewFaq, setShowNewFaq] = useState(false);
+  const [showNewNews, setShowNewNews] = useState(false);
 
   async function submitForm(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +73,7 @@ export function AdminContentManager({
         form.reset();
         setShowNewTestimonial(false);
         setShowNewFaq(false);
+        setShowNewNews(false);
       }
       setStatus({ tone: "success", message: "Home content updated." });
       router.refresh();
@@ -71,7 +84,7 @@ export function AdminContentManager({
     setBusy(false);
   }
 
-  async function deleteItem(type: "testimonial" | "faq", id: string) {
+  async function deleteItem(type: "testimonial" | "faq" | "news", id: string) {
     setBusy(true);
     setStatus(null);
     const response = await fetch("/api/admin/content", {
@@ -91,6 +104,49 @@ export function AdminContentManager({
           {status.message}
         </p>
       ) : null}
+
+      <section className="rounded border border-brand-900/10 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <button
+            type="button"
+            onClick={() => setNewsOpen((current) => !current)}
+            className="flex min-w-0 items-center gap-2 text-left text-xl font-black"
+            aria-expanded={newsOpen}
+          >
+            <ChevronDown className={`h-5 w-5 shrink-0 transition ${newsOpen ? "rotate-0" : "-rotate-90"}`} />
+            <span>News feed</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNewsOpen(true);
+              setShowNewNews((current) => !current);
+            }}
+            className="grid h-10 w-10 place-items-center rounded bg-brand-700 text-white hover:bg-brand-800"
+            aria-label="Add news item"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+        {newsOpen ? (
+          <div className="grid gap-3 border-t border-brand-900/10 p-4 sm:p-5">
+            {showNewNews ? <NewsForm action="create" onSubmit={submitForm} disabled={busy} /> : null}
+            {newsItems.length ? newsItems.map((item) => (
+              <details key={item.id} className="rounded border border-brand-900/10 bg-brand-50/55">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-black">
+                  <span>{item.title}</span>
+                  <span className="text-xs font-bold uppercase text-brand-700">{item.published ? "Published" : "Hidden"}</span>
+                </summary>
+                <div className="border-t border-brand-900/10 p-4">
+                  <NewsForm action="update" item={item} onSubmit={submitForm} onDelete={() => deleteItem("news", item.id)} disabled={busy} />
+                </div>
+              </details>
+            )) : (
+              <p className="rounded bg-brand-50 p-4 text-sm font-semibold text-ink/65">No news items yet.</p>
+            )}
+          </div>
+        ) : null}
+      </section>
 
       <section className="rounded border border-brand-900/10 bg-white shadow-sm">
         <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
@@ -248,6 +304,39 @@ function FaqForm({
         Answer
         <textarea name="answer" rows={3} defaultValue={item?.answer || ""} required className="rounded border border-brand-900/15 p-3 focus-ring" />
       </label>
+      <FormButtons action={action} disabled={disabled} onDelete={onDelete} />
+    </form>
+  );
+}
+
+function NewsForm({
+  action,
+  item,
+  onSubmit,
+  onDelete,
+  disabled
+}: {
+  action: "create" | "update";
+  item?: NewsRow;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onDelete?: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="grid gap-3">
+      <input type="hidden" name="type" value="news" />
+      <input type="hidden" name="action" value={action} />
+      {item ? <input type="hidden" name="id" value={item.id} /> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="font-black">{action === "create" ? "Add news item" : "Edit news item"}</p>
+        <label className="flex items-center gap-2 text-sm font-bold text-ink/65">
+          <input type="checkbox" name="published" value="true" defaultChecked={item?.published ?? true} className="h-4 w-4 rounded border-brand-900/20" />
+          Published
+        </label>
+      </div>
+      <Input name="title" label="News text" defaultValue={item?.title || ""} required />
+      <Input name="link" label="Optional link" type="url" defaultValue={item?.link || ""} />
+      <Input name="sortOrder" label="Sort order" type="number" defaultValue={String(item?.sortOrder || 0)} />
       <FormButtons action={action} disabled={disabled} onDelete={onDelete} />
     </form>
   );

@@ -44,6 +44,21 @@ const testimonials = [
   }
 ];
 
+const newsItems = [
+  {
+    title: "Fast vehicle paper renewal with home and office delivery",
+    sortOrder: 1
+  },
+  {
+    title: "Start with 75% upfront and pay the balance on delivery",
+    sortOrder: 2
+  },
+  {
+    title: "Fleet accounts can track renewals, drivers, documents, and reminders",
+    sortOrder: 3
+  }
+];
+
 const deliveryLocations = [
   { state: "Lagos", location: "Mainland", fee: 5000 },
   { state: "Lagos", location: "Island", fee: 8000 },
@@ -77,6 +92,10 @@ async function main() {
 
   for (const item of testimonials) {
     await prisma.testimonial.create({ data: item });
+  }
+
+  for (const item of newsItems) {
+    await prisma.newsItem.create({ data: item });
   }
 
   const passwordHash = await bcrypt.hash("AdminPass123!", 12);
