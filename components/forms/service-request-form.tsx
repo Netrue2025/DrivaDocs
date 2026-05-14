@@ -377,15 +377,7 @@ export function ServiceRequestForm({
       const cached = fileMeta[field.name];
 
       if (!file && cached && !cached.persisted) {
-        uploaded.push({
-          ...cached,
-          fileName: cached.fileName || cached.name,
-          mimeType: cached.mimeType || cached.type || "application/octet-stream",
-          fileSize: cached.fileSize || cached.size || 0,
-          storageKey: cached.storageKey || `cached/${Date.now()}-${cached.name}`,
-          publicUrl: cached.publicUrl
-        });
-        continue;
+        throw new Error(`Please re-upload ${cached.name || field.label} before submitting this request.`);
       }
 
       if (!file) continue;
@@ -1295,7 +1287,7 @@ function requirementsComplete(
 ) {
   return requirements.every((field) => {
     if (!field.required) return true;
-    if (field.type === "file") return Boolean(files[field.name] || fileMeta[field.name]);
+    if (field.type === "file") return Boolean(files[field.name] || fileMeta[field.name]?.persisted);
     return Boolean(values[field.name]?.trim());
   });
 }

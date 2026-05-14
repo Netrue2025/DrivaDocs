@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isClientUploadStorageKey } from "@/lib/upload-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "This is not a grouped fleet order." }, { status: 400 });
   }
 
+  if (hasInvalidBulkUpload(parsed.data.items, [session.user.id, serviceRequest.userId])) {
+    return NextResponse.json({ error: "One of the uploaded fleet documents is invalid. Please upload it again." }, { status: 400 });
+  }
+
   const updatesById = new Map(parsed.data.items.map((item) => [item.id, item]));
   const items = requirements.items.map((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return item;
@@ -77,4 +82,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
 function asJsonObject(value: unknown): Prisma.JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Prisma.JsonObject) : {};
+}
+
+function hasInvalidBulkUpload(items: { files: Record<string, { storageKey: string }> }[], allowedUserIds: string[]) {
+  const uniqueAllowedUserIds = Array.from(new Set(allowedUserIds.filter(Boolean)));
+  return items.some((item) =>
+    Object.values(item.files).some((file) => !uniqueAllowedUserIds.some((userId) => isClientUploadStorageKey(file.storageKey, userId)))
+  );
 }

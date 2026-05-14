@@ -6,10 +6,12 @@ export const dynamic = "force-dynamic";
 
 const contentSchema = z.object({
   action: z.enum(["create", "update", "delete"]),
-  type: z.enum(["testimonial", "faq", "news"]),
+  type: z.enum(["testimonial", "faq", "news", "greeting"]),
   id: z.string().optional(),
+  enabled: z.union([z.literal("true"), z.boolean()]).optional(),
   published: z.union([z.literal("true"), z.boolean()]).optional(),
   title: z.string().optional(),
+  message: z.string().optional(),
   link: z.string().optional(),
   name: z.string().optional(),
   role: z.string().optional(),
@@ -19,6 +21,7 @@ const contentSchema = z.object({
   question: z.string().optional(),
   answer: z.string().optional(),
   category: z.string().optional(),
+  delaySeconds: z.coerce.number().int().min(0).max(3600).optional(),
   sortOrder: z.coerce.number().int().optional()
 });
 
@@ -40,6 +43,20 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
   const published = data.published === true || data.published === "true";
+
+  if (data.type === "greeting") {
+    if (data.action !== "update") {
+      return NextResponse.json({ error: "Greeting settings can only be updated" }, { status: 400 });
+    }
+    const { saveGreetingSettings } = await import("@/lib/greeting-settings");
+    const item = await saveGreetingSettings(prisma, {
+      enabled: data.enabled === true || data.enabled === "true",
+      delaySeconds: data.delaySeconds,
+      title: data.title,
+      message: data.message
+    });
+    return NextResponse.json(item);
+  }
 
   if (data.action === "delete") {
     if (!data.id) return NextResponse.json({ error: "Missing item id" }, { status: 400 });

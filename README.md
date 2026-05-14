@@ -1,5 +1,5 @@
 # DrivaDocs
-Email: admin@drivadocs.ng
+Email: drivadocs@gmail.com
 Password: AdminPass123!
 
 

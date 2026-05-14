@@ -3,6 +3,7 @@
 import { ChevronDown, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { GreetingSettings } from "@/lib/greeting-settings";
 
 type TestimonialRow = {
   id: string;
@@ -39,16 +40,19 @@ type Status = {
 export function AdminContentManager({
   testimonials,
   faqs,
-  newsItems
+  newsItems,
+  greetingSettings
 }: {
   testimonials: TestimonialRow[];
   faqs: FaqRow[];
   newsItems: NewsRow[];
+  greetingSettings: GreetingSettings;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>(null);
   const [busy, setBusy] = useState(false);
   const [testimonialsOpen, setTestimonialsOpen] = useState(false);
+  const [greetingOpen, setGreetingOpen] = useState(true);
   const [faqsOpen, setFaqsOpen] = useState(true);
   const [newsOpen, setNewsOpen] = useState(true);
   const [showNewTestimonial, setShowNewTestimonial] = useState(false);
@@ -104,6 +108,25 @@ export function AdminContentManager({
           {status.message}
         </p>
       ) : null}
+
+      <section className="rounded border border-brand-900/10 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <button
+            type="button"
+            onClick={() => setGreetingOpen((current) => !current)}
+            className="flex min-w-0 items-center gap-2 text-left text-xl font-black"
+            aria-expanded={greetingOpen}
+          >
+            <ChevronDown className={`h-5 w-5 shrink-0 transition ${greetingOpen ? "rotate-0" : "-rotate-90"}`} />
+            <span>Greeting popup</span>
+          </button>
+        </div>
+        {greetingOpen ? (
+          <div className="border-t border-brand-900/10 p-4 sm:p-5">
+            <GreetingForm item={greetingSettings} onSubmit={submitForm} disabled={busy} />
+          </div>
+        ) : null}
+      </section>
 
       <section className="rounded border border-brand-900/10 bg-white shadow-sm">
         <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
@@ -234,6 +257,38 @@ export function AdminContentManager({
         ) : null}
       </section>
     </div>
+  );
+}
+
+function GreetingForm({
+  item,
+  onSubmit,
+  disabled
+}: {
+  item: GreetingSettings;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  disabled: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="grid gap-3">
+      <input type="hidden" name="type" value="greeting" />
+      <input type="hidden" name="action" value="update" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="font-black">Popup message</p>
+        <label className="flex items-center gap-2 text-sm font-bold text-ink/65">
+          <input type="checkbox" name="enabled" value="true" defaultChecked={item.enabled} className="h-4 w-4 rounded border-brand-900/20" />
+          Enabled
+        </label>
+      </div>
+      <Input name="title" label="Modal title" defaultValue={item.title} required />
+      <Input name="delaySeconds" label="Popup delay in seconds" type="number" min={0} max={3600} defaultValue={String(item.delaySeconds)} required />
+      <label className="grid gap-2 text-sm font-bold text-ink/75">
+        Greeting message
+        <textarea name="message" rows={4} defaultValue={item.message} required className="rounded border border-brand-900/15 p-3 focus-ring" />
+      </label>
+      <p className="text-xs font-bold text-ink/55">Use {"{{name}}"} for a registered user&apos;s name and {"{{day}}"} for today&apos;s day.</p>
+      <FormButtons action="update" disabled={disabled} />
+    </form>
   );
 }
 

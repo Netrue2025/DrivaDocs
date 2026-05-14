@@ -73,5 +73,6 @@ function contentTypeFor(fileName: string) {
   const extension = fileName.split(".").pop()?.toLowerCase();
   if (extension === "pdf") return "application/pdf";
   if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
   return "image/jpeg";
 }

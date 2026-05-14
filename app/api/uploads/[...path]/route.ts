@@ -1,6 +1,10 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { canAccessUploadStorageKey, isSafeUploadStorageKey } from "@/lib/upload-access";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +14,12 @@ export async function GET(request: Request, { params }: { params: { path: string
   if (!isSafeUploadKey(storageKey)) {
     return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
   }
+
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const canAccess = await canAccessUploadStorageKey(prisma, storageKey, session.user);
+  if (!canAccess) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
   const url = new URL(request.url);
   const download = url.searchParams.get("download") === "1";
@@ -67,7 +77,7 @@ async function readFromSupabase(storageKey: string) {
 }
 
 function isSafeUploadKey(storageKey: string) {
-  return storageKey.startsWith("uploads/") && !storageKey.split("/").some((part) => part === ".." || part === "");
+  return isSafeUploadStorageKey(storageKey);
 }
 
 function sanitizeHeaderFileName(fileName: string) {
@@ -79,5 +89,6 @@ function contentTypeFor(fileName: string) {
   if (extension === "pdf") return "application/pdf";
   if (extension === "png") return "image/png";
   if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "webp") return "image/webp";
   return "application/octet-stream";
 }

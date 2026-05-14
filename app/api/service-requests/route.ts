@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isClientUploadStorageKey } from "@/lib/upload-access";
 import { requestCode } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -57,6 +58,11 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const invalidDocument = data.documents.find((document) => !isClientUploadStorageKey(document.storageKey, session.user.id));
+  if (invalidDocument) {
+    return NextResponse.json({ error: "One of the uploaded documents is invalid. Please upload it again." }, { status: 400 });
+  }
+
   const businessAccount = session.user.accountType === "BUSINESS"
     ? await prisma.businessAccount.findUnique({ where: { userId: session.user.id }, select: { id: true } })
     : null;

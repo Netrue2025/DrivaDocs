@@ -38,7 +38,7 @@ export function Footer({ compact = false }: { compact?: boolean }) {
             <a href="tel:09074707624" className="flex items-center gap-2">
               <Phone size={16} /> 09074707624
             </a>
-            <a href="mailto:support@drivadocs.ng" className="flex items-center gap-2">
+            <a href="mailto:drivadocs@gmail.com" className="flex items-center gap-2">
               <Mail size={16} /> Email support
             </a>
             <a href="https://wa.me/2349074707624" className="flex items-center gap-2">

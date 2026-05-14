@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { resolveFleetAmount } from "@/lib/fleet-pricing";
 import { prisma } from "@/lib/prisma";
 import { serviceLabels, type PricingItem } from "@/lib/pricing-catalog";
+import { isClientUploadStorageKey } from "@/lib/upload-access";
 import { requestCode, splitPayment } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -71,6 +72,10 @@ export async function POST(request: Request) {
   }
 
   const data = { ...parsed.data, ids: Array.from(new Set(parsed.data.ids)) };
+  if (hasInvalidBulkUpload(data.files, [session.user.id])) {
+    return NextResponse.json({ error: "One of the uploaded fleet documents is invalid. Please upload it again." }, { status: 400 });
+  }
+
   const validService = data.target === "VEHICLE" ? vehicleServices.has(data.serviceType) : driverServices.has(data.serviceType);
   if (!validService) {
     return NextResponse.json({ error: "Selected service does not match this bulk order type." }, { status: 400 });
@@ -233,4 +238,10 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ requestId: created.id, count: items.length, total, upfrontAmount: split.upfront, balanceAmount: split.balance }, { status: 201 });
+}
+
+function hasInvalidBulkUpload(files: Record<string, Record<string, { storageKey: string }>>, allowedUserIds: string[]) {
+  return Object.values(files).some((fieldFiles) =>
+    Object.values(fieldFiles).some((file) => !allowedUserIds.some((userId) => isClientUploadStorageKey(file.storageKey, userId)))
+  );
 }

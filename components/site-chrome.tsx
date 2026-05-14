@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { Footer } from "@/components/footer";
+import { GreetingPopupModal } from "@/components/greeting-popup-modal";
 import { NavbarClient } from "@/components/navbar-client";
 import { NavigationPreloader } from "@/components/navigation-preloader";
 import { WhatsappFloatingButton } from "@/components/whatsapp-floating-button";
@@ -30,6 +31,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         </div>
         <WhatsappFloatingButton />
         <NavigationPreloader />
+        <GreetingPopupModal />
       </div>
     </AuthSessionProvider>
   );

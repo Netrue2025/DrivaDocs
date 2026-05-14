@@ -100,11 +100,11 @@ async function main() {
 
   const passwordHash = await bcrypt.hash("AdminPass123!", 12);
   const admin = await prisma.user.upsert({
-    where: { email: "admin@drivadocs.ng" },
+    where: { email: "drivadocs@gmail.com" },
     update: {},
     create: {
       name: "DrivaDocs Admin",
-      email: "admin@drivadocs.ng",
+      email: "drivadocs@gmail.com",
       phone: "2349074707624",
       passwordHash,
       role: "SUPER_ADMIN",
