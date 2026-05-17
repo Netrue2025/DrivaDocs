@@ -4,7 +4,7 @@ import { Bike, Car, ChevronDown, ChevronRight, Edit3, Loader2, Plus, Save, Trash
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { adminVehicleCategories, categoryEngineOptions, privateCommercialOptions, resolveFleetAmount, statePriceOptions } from "@/lib/fleet-pricing";
-import { serviceLabels, vehiclePaperRenewalBreakdowns } from "@/lib/pricing-catalog";
+import { nonRegionalPricingServiceTypes, serviceLabels, vehiclePaperRenewalBreakdowns } from "@/lib/pricing-catalog";
 import { formatNaira } from "@/lib/utils";
 
 type AdminPrice = {
@@ -179,7 +179,7 @@ export function AdminPriceList({ prices }: { prices: AdminPrice[] }) {
 
               {isOpen ? (
                 <div className="grid gap-3 border-t border-brand-900/10 bg-slate-50/45 p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-3">
-                  {group.serviceType === "NEW_VEHICLE_REGISTRATION" || group.serviceType === "VEHICLE_PAPER_RENEWAL" ? (
+                  {usesVehicleMatrix(group.serviceType) ? (
                     <VehicleMatrixSection
                       serviceType={group.serviceType}
                       sections={matrixSections[group.serviceType] || []}
@@ -1019,6 +1019,9 @@ function priceDescriptor(price: AdminPrice) {
   if (price.serviceType === "NEW_VEHICLE_REGISTRATION") {
     return [price.vehicleType, price.usage, price.state].filter(Boolean).join(" - ") || "General";
   }
+  if (nonRegionalPricingServiceTypes.includes(price.serviceType as (typeof nonRegionalPricingServiceTypes)[number])) {
+    return [price.vehicleType, price.engineCategory, price.usage, price.location].filter(Boolean).join(" - ") || "General";
+  }
   return [price.vehicleType, price.engineCategory, price.usage, price.state, price.location].filter(Boolean).join(" - ") || "General";
 }
 
@@ -1099,6 +1102,15 @@ function groupPrices(prices: AdminPrice[]) {
 
 function buildMatrixSections(prices: AdminPrice[]): Record<string, PriceMatrixSection[]> {
   return {
+    FADED_NUMBER_PLATE_REPRINT: adminVehicleCategories.map((vehicleType) => {
+      const rows = buildVehiclePriceRows(prices, "FADED_NUMBER_PLATE_REPRINT", vehicleType);
+      return {
+        serviceType: "FADED_NUMBER_PLATE_REPRINT",
+        vehicleType,
+        title: matrixTitleForCategory("FADED_NUMBER_PLATE_REPRINT", vehicleType),
+        rows
+      };
+    }),
     NEW_VEHICLE_REGISTRATION: adminVehicleCategories.map((vehicleType) => {
       const rows = buildVehiclePriceRows(prices, "NEW_VEHICLE_REGISTRATION", vehicleType);
       return {
@@ -1148,6 +1160,10 @@ function buildVehiclePriceRows(prices: AdminPrice[], serviceType: string, vehicl
 }
 
 function priceVariantsForCategory(serviceType: string, vehicleType: string) {
+  if (serviceType === "FADED_NUMBER_PLATE_REPRINT") {
+    return [{ engineCategory: undefined, usage: undefined, state: undefined }];
+  }
+
   const engines = categoryEngineOptions[vehicleType] || [null];
   const needsUsage = ["Car", "SUV", "Bus", "Pickup"].includes(vehicleType);
   const usages = needsUsage ? [...privateCommercialOptions] : [undefined];
@@ -1266,6 +1282,8 @@ const pickupRenewalBreakdowns = [
 ];
 
 function matrixTitleForCategory(serviceType: string, vehicleType: string) {
+  if (serviceType === "FADED_NUMBER_PLATE_REPRINT") return "Reprint price";
+
   const engines = categoryEngineOptions[vehicleType] || [];
   const engineText = engines.filter((item) => !["Motorcycle", "Tricycle"].includes(item)).join(", ");
   if (serviceType === "NEW_VEHICLE_REGISTRATION") return engineText ? `${engineText} by state and use` : "Prices by state";
@@ -1312,8 +1330,15 @@ function amountFromDraft(value: string) {
 }
 
 function matrixRowLabel(price: AdminPrice, serviceType: string) {
+  if (serviceType === "FADED_NUMBER_PLATE_REPRINT") return "Reprint price";
   if (serviceType === "VEHICLE_PAPER_RENEWAL") return [price.engineCategory, formatUsage(price.usage), "Renewal total"].filter(Boolean).join(" - ");
   return [price.engineCategory, formatUsage(price.usage), price.state?.toUpperCase()].filter(Boolean).join(" - ") || price.state || "Price";
+}
+
+function usesVehicleMatrix(serviceType: string) {
+  return serviceType === "NEW_VEHICLE_REGISTRATION" ||
+    serviceType === "VEHICLE_PAPER_RENEWAL" ||
+    serviceType === "FADED_NUMBER_PLATE_REPRINT";
 }
 
 function formatUsage(usage?: string | null) {

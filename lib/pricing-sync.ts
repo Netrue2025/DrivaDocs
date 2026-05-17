@@ -1,7 +1,16 @@
-import { legacyOtherDocumentServices, pricingCatalog } from "@/lib/pricing-catalog";
+import { legacyOtherDocumentServices, nonRegionalPricingServiceTypes, pricingCatalog } from "@/lib/pricing-catalog";
 import { prisma } from "@/lib/prisma";
 
 export async function ensureDefaultPricingRows() {
+  await prisma.servicePricing.updateMany({
+    where: {
+      serviceType: { in: [...nonRegionalPricingServiceTypes] as never },
+      state: { not: null },
+      active: true
+    },
+    data: { state: null }
+  });
+
   for (const item of pricingCatalog) {
     const existing = await prisma.servicePricing.findFirst({
       where: {

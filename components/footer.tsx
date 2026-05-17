@@ -7,9 +7,17 @@ export function Footer({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
       <footer className="border-t border-brand-900/10 bg-white px-4 py-4 text-center text-xs font-semibold text-ink/55">
-        <span>Copyright {new Date().getFullYear()} DrivaDocs. All rights reserved.</span>
-        <span className="mx-2 text-ink/25">|</span>
-        <span>Privacy &amp; Policy</span>
+        <p>
+          <span>Copyright {new Date().getFullYear()} DrivaDocs. All rights reserved.</span>
+          <span className="mx-2 text-ink/25">|</span>
+          <span>Privacy &amp; Policy</span>
+        </p>
+        <p className="mt-2 text-[11px] font-black uppercase tracking-[0.14em] text-brand-700/80">
+          Design and Developed By{" "}
+          <a href="https://netrue.io" target="_blank" rel="noreferrer" className="text-brand-900 underline decoration-road decoration-2 underline-offset-4 transition hover:text-brand-700">
+            Netrue Limited
+          </a>
+        </p>
       </footer>
     );
   }
@@ -48,9 +56,17 @@ export function Footer({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-white/50">
-        Copyright {new Date().getFullYear()} DrivaDocs. All rights reserved.
-        <span className="mx-2 text-white/20">|</span>
-        Privacy &amp; Policy
+        <p>
+          Copyright {new Date().getFullYear()} DrivaDocs. All rights reserved.
+          <span className="mx-2 text-white/20">|</span>
+          Privacy &amp; Policy
+        </p>
+        <p className="mt-2 text-[11px] font-black uppercase tracking-[0.16em] text-white/60">
+          Design and Developed By{" "}
+          <a href="https://netrue.io" target="_blank" rel="noreferrer" className="text-road underline decoration-white/25 decoration-2 underline-offset-4 transition hover:text-white">
+            Netrue Limited
+          </a>
+        </p>
       </div>
     </footer>
   );

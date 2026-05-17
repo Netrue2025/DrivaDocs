@@ -52,6 +52,22 @@ export const legacyOtherDocumentServices = ["Local government papers", "Signage"
 export const driverLicenseDurationOptions = ["3 years", "5 years"] as const;
 
 export const newVehicleRegistrationLocations = ["Oyo", "Lagos", "Abuja"] as const;
+export const vehicleTypes = ["Motorcycle", "Tricycle", "Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"];
+
+export const nonRegionalPricingServiceTypes = [
+  "FADED_NUMBER_PLATE_REPRINT",
+  "NEW_DRIVERS_LICENSE",
+  "DRIVERS_LICENSE_RENEWAL",
+  "INTERNATIONAL_DRIVERS_LICENSE",
+  "NEW_MOTORCYCLE_RIDERS_LICENSE",
+  "MOTORCYCLE_RIDERS_LICENSE_RENEWAL"
+] as const;
+
+export function normalizeNonRegionalPricingScope<T extends Pick<PricingItem, "serviceType" | "state">>(item: T): T {
+  return nonRegionalPricingServiceTypes.includes(item.serviceType as (typeof nonRegionalPricingServiceTypes)[number])
+    ? { ...item, state: undefined }
+    : item;
+}
 
 export const newVehicleRegistrationCategories = [
   "MOTORCYCLE",
@@ -304,57 +320,49 @@ export const pricingCatalog: PricingItem[] = [
     amount: 0,
     notes: "Negotiation based"
   },
-  {
-    serviceType: "FADED_NUMBER_PLATE_REPRINT",
+  ...vehicleTypes.map((vehicleType) => ({
+    serviceType: "FADED_NUMBER_PLATE_REPRINT" as const,
     serviceName: serviceLabels.FADED_NUMBER_PLATE_REPRINT,
-    vehicleType: "Car",
-    state: "Lagos",
+    vehicleType,
     amount: 75000
-  },
+  })),
   {
     serviceType: "NEW_DRIVERS_LICENSE",
     serviceName: serviceLabels.NEW_DRIVERS_LICENSE,
-    state: "Lagos",
     location: "3 years",
     amount: 47000
   },
   {
     serviceType: "NEW_DRIVERS_LICENSE",
     serviceName: serviceLabels.NEW_DRIVERS_LICENSE,
-    state: "Lagos",
     location: "5 years",
     amount: 52000
   },
   {
     serviceType: "DRIVERS_LICENSE_RENEWAL",
     serviceName: serviceLabels.DRIVERS_LICENSE_RENEWAL,
-    state: "Lagos",
     location: "3 years",
     amount: 24500
   },
   {
     serviceType: "DRIVERS_LICENSE_RENEWAL",
     serviceName: serviceLabels.DRIVERS_LICENSE_RENEWAL,
-    state: "Lagos",
     location: "5 years",
     amount: 29500
   },
   {
     serviceType: "INTERNATIONAL_DRIVERS_LICENSE",
     serviceName: serviceLabels.INTERNATIONAL_DRIVERS_LICENSE,
-    state: "Lagos",
     amount: 85000
   },
   {
     serviceType: "NEW_MOTORCYCLE_RIDERS_LICENSE",
     serviceName: serviceLabels.NEW_MOTORCYCLE_RIDERS_LICENSE,
-    state: "Lagos",
     amount: 42000
   },
   {
     serviceType: "MOTORCYCLE_RIDERS_LICENSE_RENEWAL",
     serviceName: serviceLabels.MOTORCYCLE_RIDERS_LICENSE_RENEWAL,
-    state: "Lagos",
     amount: 30000
   },
   {
@@ -387,7 +395,6 @@ export const pricingCatalog: PricingItem[] = [
   }
 ];
 
-export const vehicleTypes = ["Motorcycle", "Tricycle", "Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"];
 export const engineCategories = ["Motorcycle", "Tricycle", "1.0L - 2.0L", "1.6L - 2.0L", "2.1L - 3.0L", "3.1L - 12.0L"];
 export const usageTypes = ["PRIVATE", "COMMERCIAL"];
 export const states = ["Lagos", "Oyo", "Abuja"];
@@ -405,8 +412,10 @@ export function pricingKey(item: PricingKeyFields) {
 }
 
 export function mergePricingWithCatalog(rows: PricingItem[]) {
-  const activeRows = rows.filter((item) => item.active !== false && !isLegacyDriverLicensePrice(item));
-  const inactiveKeys = new Set(rows.filter((item) => item.active === false).map(pricingKey));
+  const activeRows = rows
+    .filter((item) => item.active !== false && !isLegacyDriverLicensePrice(item))
+    .map(normalizeNonRegionalPricingScope);
+  const inactiveKeys = new Set(rows.filter((item) => item.active === false).map(normalizeNonRegionalPricingScope).map(pricingKey));
   const byKey = new Map(activeRows.map((item) => [pricingKey(item), item]));
   const merged = pricingCatalog
     .filter((item) => !inactiveKeys.has(pricingKey(item)))
