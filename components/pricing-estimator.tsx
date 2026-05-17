@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { adminVehicleCategories, categoryEngineOptions, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, renewalBreakdownItemsForVehicle, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
-import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { driverLicenseDurationOptions, engineCategories, newVehicleRegistrationLocations, otherDocumentServices, serviceLabels, states as deliveryStates, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira, splitPayment } from "@/lib/utils";
 
@@ -23,6 +23,7 @@ const serviceFieldRules: Record<
     ownershipRoute?: boolean;
     deliveryLocation?: boolean;
     otherDocument?: boolean;
+    licenseDuration?: boolean;
   }
 > = {
   VEHICLE_PAPER_RENEWAL: {
@@ -57,10 +58,12 @@ const serviceFieldRules: Record<
     deliveryLocation: true
   },
   NEW_DRIVERS_LICENSE: {
+    licenseDuration: true,
     state: true,
     deliveryLocation: true
   },
   DRIVERS_LICENSE_RENEWAL: {
+    licenseDuration: true,
     state: true,
     deliveryLocation: true
   },
@@ -98,6 +101,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
   const [deliveryLocation, setDeliveryLocation] = useState("Mainland");
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("PHYSICAL_DELIVERY");
   const [otherDocument, setOtherDocument] = useState("");
+  const [licenseDuration, setLicenseDuration] = useState<(typeof driverLicenseDurationOptions)[number]>("3 years");
   const [estimateOpen, setEstimateOpen] = useState(false);
   const [priceSummaryOpen, setPriceSummaryOpen] = useState(false);
 
@@ -132,11 +136,15 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
       return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, usage, state);
     }
 
+    const desiredLocation = serviceType === "NEW_DRIVERS_LICENSE" || serviceType === "DRIVERS_LICENSE_RENEWAL"
+      ? licenseDuration
+      : ownershipRoute;
+
     return (
       prices.find(
         (item) =>
           item.serviceType === serviceType &&
-          (!item.location || item.location === ownershipRoute) &&
+          (!item.location || item.location === desiredLocation) &&
           (!item.vehicleType || item.vehicleType === vehicleType) &&
           (!item.engineCategory || item.engineCategory === effectiveEngineCategory) &&
           (!item.usage || item.usage === usage) &&
@@ -145,7 +153,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
       prices.find((item) => item.serviceType === serviceType && (!item.state || item.state === preferredState)) ??
       prices.find((item) => item.serviceType === serviceType)
     );
-  }, [engineCategory, engineOptions, otherDocument, ownershipRoute, prices, servicePricingState, serviceType, state, usage, vehicleType]);
+  }, [engineCategory, engineOptions, licenseDuration, otherDocument, ownershipRoute, prices, servicePricingState, serviceType, state, usage, vehicleType]);
   const effectiveEngineCategory = engineCategory || engineOptions[0] || categoryEngineOptions[vehicleType]?.[0] || (vehicleType === "Motorcycle" ? "Motorcycle" : engineCategories[0]);
   const renewalBreakdown = useMemo(() => {
     if (serviceType !== "VEHICLE_PAPER_RENEWAL") return [];
@@ -206,6 +214,7 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                 setVehicleType(nextVehicleType);
                 setEngineCategory(engineOptionsForVehicle(prices, nextService, nextVehicleType)[0] || categoryEngineOptions[nextVehicleType]?.[0] || engineCategories[0]);
                 setOtherDocument("");
+                setLicenseDuration("3 years");
                 setState("Lagos");
                 setOtherState("");
                 setDeliveryState("Lagos");
@@ -325,6 +334,24 @@ export function PricingEstimator({ prices }: { prices: PricingItem[] }) {
                   >
                     {preferredPlateOptions.map((item) => (
                       <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+              {rules.licenseDuration ? (
+                <Field label="License duration">
+                  <select
+                    value={licenseDuration}
+                    onChange={(event) => {
+                      setLicenseDuration(event.target.value as (typeof driverLicenseDurationOptions)[number]);
+                      setEstimateOpen(false);
+                    }}
+                    className="field"
+                  >
+                    {driverLicenseDurationOptions.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
                     ))}
                   </select>
                 </Field>

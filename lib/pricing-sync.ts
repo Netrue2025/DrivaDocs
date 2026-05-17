@@ -40,4 +40,13 @@ export async function ensureDefaultPricingRows() {
     },
     data: { active: false }
   });
+
+  await prisma.servicePricing.updateMany({
+    where: {
+      serviceType: { in: ["NEW_DRIVERS_LICENSE", "DRIVERS_LICENSE_RENEWAL"] },
+      location: null,
+      active: true
+    },
+    data: { active: false }
+  });
 }

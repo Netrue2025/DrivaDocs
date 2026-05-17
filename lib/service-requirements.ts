@@ -60,6 +60,7 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "proofOfOwnership", label: "Proof of ownership", type: "file", accept: "document", required: true }
   ],
   NEW_DRIVERS_LICENSE: [
+    { name: "licenseDuration", label: "License duration", required: true },
     { name: "surname", label: "Surname", required: true },
     { name: "firstName", label: "First name", required: true },
     { name: "lastName", label: "Last name" },
@@ -76,6 +77,7 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "nin", label: "NIN", required: true }
   ],
   DRIVERS_LICENSE_RENEWAL: [
+    { name: "licenseDuration", label: "License duration", required: true },
     { name: "licenseNumber", label: "Driver's license number", required: true },
     { name: "nameOnLicense", label: "Name on license", required: true },
     { name: "currentDriverLicense", label: "Current driver's license", type: "file", accept: "document", required: true },

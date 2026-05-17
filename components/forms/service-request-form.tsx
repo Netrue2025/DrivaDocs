@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminVehicleCategories, categoryEngineOptions, engineOptionsForVehicle, needsEngineCategory, needsUsageCategory, renewalBreakdownItemsForVehicle, resolveFleetPrice, stateOptionsForService, usageOptionsForVehicle } from "@/lib/fleet-pricing";
-import { engineCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
+import { driverLicenseDurationOptions, engineCategories, newVehicleRegistrationLocations, otherDocumentServices, pricingCatalog, serviceLabels, states, usageTypes, vehicleTypes, type PricingItem } from "@/lib/pricing-catalog";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { serviceRequirements, type RequirementField } from "@/lib/service-requirements";
 import { formatNaira, splitPayment } from "@/lib/utils";
@@ -132,15 +132,17 @@ export function ServiceRequestForm({
       return resolveFleetPrice(serviceType, prices, vehicleType, effectiveEngineCategory, effectiveUsage, state);
     }
 
+    const licenseDuration = values.licenseDuration || driverLicenseDurationOptions[0];
     return (
       prices.find(
         (item) =>
           item.serviceType === serviceType &&
+          (!item.location || item.location === licenseDuration) &&
           (!item.vehicleType || item.vehicleType === vehicleType) &&
           (!item.state || item.state === state)
       ) ?? prices.find((item) => item.serviceType === serviceType)
     );
-  }, [effectiveEngineCategory, effectivePricingState, effectiveUsage, prices, serviceType, state, values.permitType, vehicleType]);
+  }, [effectiveEngineCategory, effectivePricingState, effectiveUsage, prices, serviceType, state, values.licenseDuration, values.permitType, vehicleType]);
 
   const deliveryMethod = resolveDeliveryMethod(values);
   const deliveryOptions = useMemo(() => deliveryOptionsForState(prices, state), [prices, state]);
@@ -942,6 +944,19 @@ function RequirementControl({
             </option>
           ))}
         </select>
+      ) : field.name === "licenseDuration" ? (
+        <select
+          value={value || driverLicenseDurationOptions[0]}
+          onChange={(event) => onValue(field.name, event.target.value)}
+          required={field.required}
+          className="min-h-11 min-w-0 rounded border border-brand-900/15 bg-white px-3 focus-ring"
+        >
+          {driverLicenseDurationOptions.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
       ) : field.type === "textarea" ? (
         <textarea
           value={value}
@@ -1273,7 +1288,11 @@ function buildRequirementPayload(
   const requirementPayload: Record<string, unknown> = { deliveryPeriod, vehicleType };
   for (const field of requirements) {
     requirementPayload[field.name] =
-      field.type === "file" ? fileMeta[field.name]?.name || "" : values[field.name] || "";
+      field.type === "file"
+        ? fileMeta[field.name]?.name || ""
+        : field.name === "licenseDuration"
+          ? values[field.name] || driverLicenseDurationOptions[0]
+          : values[field.name] || "";
   }
 
   return requirementPayload;
@@ -1288,6 +1307,7 @@ function requirementsComplete(
   return requirements.every((field) => {
     if (!field.required) return true;
     if (field.type === "file") return Boolean(files[field.name] || fileMeta[field.name]?.persisted);
+    if (field.name === "licenseDuration") return true;
     return Boolean(values[field.name]?.trim());
   });
 }

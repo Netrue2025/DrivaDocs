@@ -49,6 +49,7 @@ export const otherDocumentServices = [
 ] as const;
 
 export const legacyOtherDocumentServices = ["Local government papers", "Signage"];
+export const driverLicenseDurationOptions = ["3 years", "5 years"] as const;
 
 export const newVehicleRegistrationLocations = ["Oyo", "Lagos", "Abuja"] as const;
 
@@ -314,13 +315,29 @@ export const pricingCatalog: PricingItem[] = [
     serviceType: "NEW_DRIVERS_LICENSE",
     serviceName: serviceLabels.NEW_DRIVERS_LICENSE,
     state: "Lagos",
-    amount: 70000
+    location: "3 years",
+    amount: 47000
+  },
+  {
+    serviceType: "NEW_DRIVERS_LICENSE",
+    serviceName: serviceLabels.NEW_DRIVERS_LICENSE,
+    state: "Lagos",
+    location: "5 years",
+    amount: 52000
   },
   {
     serviceType: "DRIVERS_LICENSE_RENEWAL",
     serviceName: serviceLabels.DRIVERS_LICENSE_RENEWAL,
     state: "Lagos",
-    amount: 48000
+    location: "3 years",
+    amount: 24500
+  },
+  {
+    serviceType: "DRIVERS_LICENSE_RENEWAL",
+    serviceName: serviceLabels.DRIVERS_LICENSE_RENEWAL,
+    state: "Lagos",
+    location: "5 years",
+    amount: 29500
   },
   {
     serviceType: "INTERNATIONAL_DRIVERS_LICENSE",
@@ -388,7 +405,7 @@ export function pricingKey(item: PricingKeyFields) {
 }
 
 export function mergePricingWithCatalog(rows: PricingItem[]) {
-  const activeRows = rows.filter((item) => item.active !== false);
+  const activeRows = rows.filter((item) => item.active !== false && !isLegacyDriverLicensePrice(item));
   const inactiveKeys = new Set(rows.filter((item) => item.active === false).map(pricingKey));
   const byKey = new Map(activeRows.map((item) => [pricingKey(item), item]));
   const merged = pricingCatalog
@@ -402,4 +419,11 @@ export function mergePricingWithCatalog(rows: PricingItem[]) {
     item.serviceName !== serviceLabels.VEHICLE_PAPER_RENEWAL
   );
   return [...merged, ...customActiveRows, ...inactiveRenewalDocumentRows];
+}
+
+export function isLegacyDriverLicensePrice(item: Pick<PricingItem, "serviceType" | "location">) {
+  return (
+    (item.serviceType === "NEW_DRIVERS_LICENSE" || item.serviceType === "DRIVERS_LICENSE_RENEWAL") &&
+    !item.location
+  );
 }

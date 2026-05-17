@@ -1,5 +1,6 @@
 import type { Payment, ServiceRequest, User, DeliveryAddress } from "@prisma/client";
 import { createBrandedEmail, getAppUrl, getEmailFrom, getSupportEmail } from "@/lib/email-template";
+import { sendMail } from "@/lib/mailer";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira } from "@/lib/utils";
 
@@ -18,7 +19,6 @@ export async function sendPaymentSuccessEmail({
   request: PaymentEmailRequest;
   payment: PaymentEmailPayment;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
   const to = request.user.email;
   const paidAmount = request.payments
     .filter((item) => item.status === "SUCCESS")
@@ -100,33 +100,18 @@ export async function sendPaymentSuccessEmail({
     "Thank you for choosing DrivaDocs."
   ].filter(Boolean);
 
-  if (!apiKey) {
-    console.info(`Payment success email for ${request.requestCode} queued for ${to}. Configure RESEND_API_KEY to send email.`);
-    return { sent: false, reason: "RESEND_API_KEY is not configured" };
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: getEmailFrom(),
-      to,
-      reply_to: getSupportEmail(),
-      subject: `Payment successful for ${request.requestCode}`,
-      html: email.html,
-      text: email.text || lines.join("\n")
-    })
+  const delivery = await sendMail({
+    from: getEmailFrom(),
+    to,
+    replyTo: getSupportEmail(),
+    subject: `Payment successful for ${request.requestCode}`,
+    html: email.html,
+    text: email.text || lines.join("\n")
   });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Unable to send payment success email: ${response.status} ${body}`);
+  if (!delivery.sent) {
+    console.info(`Payment success email for ${request.requestCode} queued for ${to}. ${delivery.reason}`);
   }
-
-  return { sent: true };
+  return delivery;
 }
 
 function getAppliedService(requirements: unknown, fallback: string) {
