@@ -3,6 +3,7 @@
 import { signIn, useSession } from "next-auth/react";
 import { useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
 
 type Status = "idle" | "loading" | "success" | "error";
 type PendingTicket = {
@@ -150,7 +151,7 @@ export function ContactForm() {
 
             <form onSubmit={continueWithAuth} className="mt-5 grid gap-4">
               <Input name="email" label="Email" type="email" required />
-              <Input name="password" label="Password" type="password" required minLength={8} />
+              <PasswordInput name="password" label="Password" required minLength={8} autoComplete="current-password" />
               {authError ? <p className="text-sm font-bold text-red-700">{authError}</p> : null}
               <button disabled={status === "loading"} className="min-h-11 rounded bg-brand-700 px-5 font-bold text-white hover:bg-brand-800 disabled:opacity-60">
                 {status === "loading" ? "Continuing..." : "Continue and send"}

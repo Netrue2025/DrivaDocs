@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { PasswordInput } from "@/components/password-input";
 
 type AccountType = "INDIVIDUAL" | "BUSINESS";
 
@@ -68,7 +69,7 @@ export function SignupForm() {
         <Input name="name" label="Full name" required />
         <Input name="email" label="Email" type="email" required />
         <Input name="phone" label="Phone number" />
-        <Input name="password" label="Password" type="password" minLength={8} required />
+        <PasswordInput name="password" label="Password" minLength={8} required autoComplete="new-password" />
       </div>
       {accountType === "BUSINESS" ? (
         <div className="grid gap-4 rounded border border-brand-900/10 bg-brand-50/40 p-4 md:grid-cols-2">

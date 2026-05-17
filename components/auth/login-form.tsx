@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { PasswordInput } from "@/components/password-input";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -38,10 +39,7 @@ export function LoginForm() {
         Email
         <input name="email" type="email" required className="min-h-11 rounded border border-brand-900/15 px-3 focus-ring" />
       </label>
-      <label className="grid gap-2 text-sm font-bold text-ink/75">
-        Password
-        <input name="password" type="password" required className="min-h-11 rounded border border-brand-900/15 px-3 focus-ring" />
-      </label>
+      <PasswordInput name="password" label="Password" required autoComplete="current-password" />
       {error ? <p className="text-sm font-bold text-red-700">{error}</p> : null}
       <button className="min-h-11 rounded bg-brand-700 px-5 font-bold text-white hover:bg-brand-800 disabled:opacity-60" disabled={loading}>
         {loading ? "Logging in..." : "Log in"}

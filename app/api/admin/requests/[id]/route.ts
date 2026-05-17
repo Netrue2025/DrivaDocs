@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Prisma, RequestStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { sendDocumentReadyEmail } from "@/lib/document-email";
 import { sendPaymentSuccessEmail } from "@/lib/payment-email";
 import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/upload-storage";
@@ -64,7 +65,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         : adminNotes
     };
 
-    await prisma.serviceRequest.update({
+    const updatedRequest = await prisma.serviceRequest.update({
       where: { id: params.id },
       data: {
         status,
@@ -79,8 +80,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
               }
             }
           : undefined
+      },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        deliveryAddress: true
       }
     });
+
+    if (status === "DOCUMENT_READY" && serviceRequest.status !== "DOCUMENT_READY") {
+      try {
+        await sendDocumentReadyEmail(updatedRequest);
+      } catch (error) {
+        console.error(error);
+      }
+    }
 
     return NextResponse.redirect(redirectTo, 303);
   }
@@ -186,10 +199,22 @@ export async function POST(request: Request, { params }: { params: { id: string 
       }
     });
 
-    await prisma.serviceRequest.update({
+    const updatedRequest = await prisma.serviceRequest.update({
       where: { id: serviceRequest.id },
-      data: { status: "DOCUMENT_READY" }
+      data: { status: "DOCUMENT_READY" },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        deliveryAddress: true
+      }
     });
+
+    if (serviceRequest.status !== "DOCUMENT_READY") {
+      try {
+        await sendDocumentReadyEmail(updatedRequest);
+      } catch (error) {
+        console.error(error);
+      }
+    }
 
     return NextResponse.redirect(redirectTo, 303);
   }

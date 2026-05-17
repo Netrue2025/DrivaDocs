@@ -4,6 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PencilLine, Trash2, X } from "lucide-react";
+import { PasswordInput } from "@/components/password-input";
 import { Badge } from "@/components/ui/badge";
 
 type AdminUserRow = {
@@ -282,6 +283,18 @@ export function AdminUserManager({ users, currentUserId }: { users: AdminUserRow
 }
 
 function Input({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+  if (props.type === "password") {
+    const { type: _type, ...passwordProps } = props;
+    return (
+      <PasswordInput
+        {...passwordProps}
+        label={label}
+        labelClassName="grid min-w-0 gap-2 text-sm font-bold text-ink/75"
+        inputClassName="min-h-11 min-w-0 rounded border border-brand-900/15 px-3 pr-11 focus-ring"
+      />
+    );
+  }
+
   return (
     <label className="grid min-w-0 gap-2 text-sm font-bold text-ink/75">
       {label}

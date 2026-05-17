@@ -26,7 +26,8 @@ const desktopItems = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/support", label: "Support" },
-  { href: "/admin/content", label: "Home content" }
+  { href: "/admin/content", label: "Home content" },
+  { href: "/dashboard/profile", label: "Profile" }
 ];
 
 const adminGroups: Record<AdminGroupKey, AdminGroup> = {
@@ -243,5 +244,6 @@ function titleForPath(pathname: string) {
   if (pathname.startsWith("/admin/pricing")) return "Service price management";
   if (pathname.startsWith("/admin/support")) return "Support tickets";
   if (pathname.startsWith("/admin/content")) return "Home content management";
+  if (pathname.startsWith("/dashboard/profile")) return "Profile";
   return "Admin console";
 }
