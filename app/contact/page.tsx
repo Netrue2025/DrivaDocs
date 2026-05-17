@@ -13,7 +13,7 @@ export default function ContactPage() {
         <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">Support for every document request</h1>
         <p className="mt-4 text-lg leading-8 text-ink/65">
           Ask about vehicle renewals, registrations, licensing, permits, pricing, or delivery.
-          Your message is sent to drivadocs@gmail.com and stored for admin follow-up.
+          Your message is sent to support@drivadocs.com and stored for admin follow-up.
         </p>
         <div className="mt-8 grid gap-3">
           <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="tel:09074707624">
@@ -22,8 +22,8 @@ export default function ContactPage() {
           <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="https://wa.me/2349074707624">
             <MessageCircle className="text-brand-700" /> WhatsApp support: 09074707624
           </a>
-          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="mailto:drivadocs@gmail.com">
-            <Mail className="text-brand-700" /> drivadocs@gmail.com
+          <a className="flex items-center gap-3 rounded border border-brand-900/10 bg-white p-4 font-bold" href="mailto:support@drivadocs.com">
+            <Mail className="text-brand-700" /> support@drivadocs.com
           </a>
         </div>
       </div>

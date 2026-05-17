@@ -1,6 +1,6 @@
 import type { SupportTicket } from "@prisma/client";
 
-const CONTACT_TO = "drivadocs@gmail.com";
+const CONTACT_TO = "support@drivadocs.com";
 
 export async function forwardContactMessage(ticket: SupportTicket) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -16,7 +16,7 @@ export async function forwardContactMessage(ticket: SupportTicket) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      from: process.env.CONTACT_FROM_EMAIL || "DrivaDocs <drivadocs@gmail.com>",
+      from: process.env.CONTACT_FROM_EMAIL || "DrivaDocs <support@drivadocs.com>",
       to: CONTACT_TO,
       reply_to: ticket.email,
       subject: `DrivaDocs contact: ${ticket.subject}`,

@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { SiteChrome } from "@/components/site-chrome";
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-space-grotesk"
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["200", "400", "600", "700", "800"],
-  variable: "--font-inter"
-});
 
 function getMetadataBase() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
@@ -57,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
+    <html lang="en">
       <body className="min-h-screen overflow-x-hidden font-sans">
         <SiteChrome>{children}</SiteChrome>
       </body>

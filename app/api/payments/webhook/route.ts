@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
+import { sendPaymentSuccessEmail } from "@/lib/payment-email";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -33,7 +34,8 @@ export async function POST(request: Request) {
     });
     if (!existingPayment) return NextResponse.json({ received: true });
 
-    const payment = existingPayment.status === "SUCCESS"
+    const wasAlreadySuccessful = existingPayment.status === "SUCCESS";
+    const payment = wasAlreadySuccessful
       ? existingPayment
       : await prisma.payment.update({
           where: { id: existingPayment.id },
@@ -47,7 +49,11 @@ export async function POST(request: Request) {
 
     const serviceRequest = await prisma.serviceRequest.findUnique({
       where: { id: payment.serviceRequestId },
-      include: { payments: true }
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        payments: true,
+        deliveryAddress: true
+      }
     });
     const paidAmount = serviceRequest?.payments
       .filter((item) => item.status === "SUCCESS")
@@ -58,6 +64,14 @@ export async function POST(request: Request) {
       where: { id: payment.serviceRequestId },
       data: { status: fullyPaid ? "PAYMENT_CONFIRMED" : "AWAITING_PAYMENT" }
     });
+
+    if (!wasAlreadySuccessful && serviceRequest) {
+      try {
+        await sendPaymentSuccessEmail({ request: serviceRequest, payment });
+      } catch (error) {
+        console.error(error);
+      }
+    }
   }
 
   return NextResponse.json({ received: true });

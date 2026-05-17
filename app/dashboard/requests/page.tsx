@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { authOptions } from "@/lib/auth";
 import { documentUrlFromStorageKey } from "@/lib/document-url";
 import { verifyPaystackPayment } from "@/lib/paystack";
+import { sendPaymentSuccessEmail } from "@/lib/payment-email";
 import { prisma } from "@/lib/prisma";
 import { getServiceDeliveryPeriod } from "@/lib/service-delivery";
 import { formatNaira } from "@/lib/utils";
@@ -251,7 +252,7 @@ async function completePaymentFromReference(reference: string, userId: string) {
   const verified = process.env.PAYSTACK_SECRET_KEY ? await verifyPaystackPayment(reference) : { status: "success" };
   if (verified?.status !== "success") return;
 
-  await prisma.payment.update({
+  const updatedPayment = await prisma.payment.update({
     where: { id: payment.id },
     data: {
       status: "SUCCESS",
@@ -262,7 +263,11 @@ async function completePaymentFromReference(reference: string, userId: string) {
 
   const request = await prisma.serviceRequest.findUnique({
     where: { id: payment.serviceRequestId },
-    include: { payments: true }
+    include: {
+      user: { select: { name: true, email: true, phone: true } },
+      payments: true,
+      deliveryAddress: true
+    }
   });
   const paidAmount = request?.payments
     .filter((item) => item.status === "SUCCESS")
@@ -273,4 +278,12 @@ async function completePaymentFromReference(reference: string, userId: string) {
     where: { id: payment.serviceRequestId },
     data: { status: fullyPaid ? "PAYMENT_CONFIRMED" : "AWAITING_PAYMENT" }
   });
+
+  if (request) {
+    try {
+      await sendPaymentSuccessEmail({ request, payment: updatedPayment });
+    } catch (error) {
+      console.error(error);
+    }
+  }
 }

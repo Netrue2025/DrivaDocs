@@ -63,5 +63,5 @@ export async function POST(request: Request) {
     console.error(error);
   }
 
-  return NextResponse.json({ ...ticket, forwardedTo: "drivadocs@gmail.com", emailSent }, { status: 201 });
+  return NextResponse.json({ ...ticket, forwardedTo: "support@drivadocs.com", emailSent }, { status: 201 });
 }

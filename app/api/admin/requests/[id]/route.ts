@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Prisma, RequestStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
+import { sendPaymentSuccessEmail } from "@/lib/payment-email";
 import { prisma } from "@/lib/prisma";
 import { saveUploadedFile } from "@/lib/upload-storage";
 
@@ -107,7 +108,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return NextResponse.redirect(redirectTo, 303);
     }
 
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId: serviceRequest.userId,
         serviceRequestId: serviceRequest.id,
@@ -123,7 +124,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const nextPaidAmount = paidAmount + amount;
     const fullyPaid = nextPaidAmount >= serviceRequest.totalAmount;
 
-    await prisma.serviceRequest.update({
+    const updatedRequest = await prisma.serviceRequest.update({
       where: { id: serviceRequest.id },
       data: {
         status: fullyPaid ? "PAYMENT_CONFIRMED" : "AWAITING_PAYMENT",
@@ -137,8 +138,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
               : "Your 75% upfront payment has been marked as paid. Please pay the remaining balance from your dashboard."
           }
         }
+      },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        payments: true,
+        deliveryAddress: true
       }
     });
+
+    try {
+      await sendPaymentSuccessEmail({ request: updatedRequest, payment });
+    } catch (error) {
+      console.error(error);
+    }
 
     return NextResponse.redirect(redirectTo, 303);
   }
