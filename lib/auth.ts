@@ -2,7 +2,76 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import { Pool } from "pg";
 import { prisma } from "@/lib/prisma";
+
+type CredentialUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  passwordHash: string | null;
+  isActive: boolean;
+  role: string;
+  accountType: string;
+  phone: string | null;
+};
+
+const globalForCredentialPg = globalThis as unknown as {
+  credentialPool?: Pool;
+};
+
+function databaseTarget() {
+  try {
+    const url = new URL(process.env.DATABASE_URL || "");
+    return `${url.hostname}:${url.port || "default"}`;
+  } catch {
+    return "unavailable";
+  }
+}
+
+function credentialConnectionString() {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return raw;
+
+  try {
+    const url = new URL(raw);
+    url.searchParams.delete("sslmode");
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
+function credentialPool() {
+  if (!globalForCredentialPg.credentialPool) {
+    globalForCredentialPg.credentialPool = new Pool({
+      connectionString: credentialConnectionString(),
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      max: 1
+    });
+  }
+  return globalForCredentialPg.credentialPool;
+}
+
+async function findCredentialUser(email: string): Promise<CredentialUser | null> {
+  try {
+    return await prisma.user.findUnique({ where: { email } });
+  } catch (error) {
+    console.warn("Credential Prisma lookup failed; trying pg fallback", {
+      email,
+      databaseTarget: databaseTarget(),
+      code: typeof error === "object" && error && "code" in error ? error.code : undefined
+    });
+  }
+
+  const result = await credentialPool().query<CredentialUser>(
+    'select id, name, email, image, "passwordHash", "isActive", role::text, "accountType"::text, phone from "User" where email=$1 limit 1',
+    [email]
+  );
+  return result.rows[0] || null;
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -25,7 +94,7 @@ export const authOptions: NextAuthOptions = {
 
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await findCredentialUser(email);
         if (!user?.passwordHash || !user.isActive) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);

@@ -50,8 +50,10 @@ NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
 PAYSTACK_SECRET_KEY
 PAYSTACK_WEBHOOK_SECRET
 EMAIL_FROM
+RESEND_API_KEY
 SMTP_HOST
 SMTP_PORT
+SMTP_SECURE
 SMTP_USER
 SMTP_PASSWORD
 PUBLIC_SUPPORT_PHONE
@@ -60,6 +62,22 @@ Set these to your Vercel URL after first deploy:
 NEXTAUTH_URL=https://your-live-url.vercel.app
 NEXT_PUBLIC_APP_URL=https://your-live-url.vercel.app
 Then redeploy.
+
+Email Setup
+For Vercel, the most reliable option is an HTTP email provider:
+
+RESEND_API_KEY=...
+EMAIL_FROM="DrivaDocs <support@drivadocs.com>"
+
+If you use SMTP instead, configure:
+
+SMTP_HOST=mail.privateemail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=...
+SMTP_PASSWORD=...
+
+Use SMTP_SECURE=true only with port 465. After changing email env vars in Vercel, redeploy so serverless functions receive the new values.
 
 Paystack Setup
 In Paystack dashboard, set webhook URL:
