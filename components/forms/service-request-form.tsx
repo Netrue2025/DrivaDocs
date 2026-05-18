@@ -787,6 +787,7 @@ export function ServiceRequestForm({
           paymentChoice={paymentChoice}
           state={state}
           vehicleType={vehicleType}
+          usage={effectiveUsage}
           deliveryPhone={values.deliveryPhone || ""}
           deliveryCity={values.city || ""}
           deliveryAddress={values.deliveryAddress || ""}
@@ -1036,6 +1037,7 @@ function ReviewModal({
   paymentChoice,
   state,
   vehicleType,
+  usage,
   deliveryPhone,
   deliveryCity,
   deliveryAddress,
@@ -1062,6 +1064,7 @@ function ReviewModal({
   paymentChoice: PaymentChoice;
   state: string;
   vehicleType: string;
+  usage: string;
   deliveryPhone: string;
   deliveryCity: string;
   deliveryAddress: string;
@@ -1109,6 +1112,9 @@ function ReviewModal({
             <div className="grid min-w-0 gap-3 border-t border-brand-900/10 p-4 text-sm sm:grid-cols-2">
               <RowLight label="State" value={state} />
               <RowLight label="Vehicle type" value={vehicleType} />
+              {serviceType === "VEHICLE_PAPER_RENEWAL" && needsUsageCategory(serviceType, vehicleType) ? (
+                <RowLight label="Usage" value={usage === "COMMERCIAL" ? "Commercial" : "Private"} />
+              ) : null}
               <RowLight label="Delivery option" value={deliveryMethodLabel(deliveryMethod)} />
               {deliveryMethod === "PHYSICAL_DELIVERY" ? (
                 <>

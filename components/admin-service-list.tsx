@@ -238,6 +238,7 @@ function RequestDetailsModal({
                 <Detail label="Service category" value={request.title} />
                 <Detail label="Service applied for" value={serviceAppliedFor} />
                 {request.requirements.vehicleType ? <Detail label="Vehicle type" value={formatValue(request.requirements.vehicleType)} /> : null}
+                {request.requirements.usage ? <Detail label="Usage" value={formatValue(request.requirements.usage)} /> : null}
                 <Detail label="State" value={request.state || request.deliveryAddress?.state || "Not selected"} />
               </div>
             </Panel>

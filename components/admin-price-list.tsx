@@ -1165,7 +1165,9 @@ function priceVariantsForCategory(serviceType: string, vehicleType: string) {
   }
 
   const engines = categoryEngineOptions[vehicleType] || [null];
-  const needsUsage = ["Car", "SUV", "Bus", "Pickup"].includes(vehicleType);
+  const needsUsage = serviceType === "VEHICLE_PAPER_RENEWAL"
+    ? ["Car", "SUV", "Bus", "Pickup", "Lorry", "Truck"].includes(vehicleType)
+    : ["Car", "SUV", "Bus", "Pickup"].includes(vehicleType);
   const usages = needsUsage ? [...privateCommercialOptions] : [undefined];
   const states = serviceType === "NEW_VEHICLE_REGISTRATION" ? [...statePriceOptions] : [undefined];
 

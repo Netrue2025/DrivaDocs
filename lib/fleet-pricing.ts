@@ -183,7 +183,7 @@ export function needsEngineCategory(vehicleType?: string) {
 export function needsUsageCategory(serviceType: string, vehicleType?: string) {
   const normalized = normalize(vehicleType);
   if (serviceType === "NEW_VEHICLE_REGISTRATION") return ["car", "suv", "bus", "pickup"].includes(normalized);
-  if (serviceType === "VEHICLE_PAPER_RENEWAL") return ["car", "suv", "pickup"].includes(normalized);
+  if (serviceType === "VEHICLE_PAPER_RENEWAL") return ["car", "suv", "pickup", "bus", "lorry", "truck"].includes(normalized);
   return false;
 }
 
