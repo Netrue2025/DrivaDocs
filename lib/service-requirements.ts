@@ -80,6 +80,7 @@ export const serviceRequirements: Record<Exclude<PricingItem["serviceType"], "DE
     { name: "licenseDuration", label: "License duration", required: true },
     { name: "licenseNumber", label: "Driver's license number", required: true },
     { name: "nameOnLicense", label: "Name on license", required: true },
+    { name: "nin", label: "NIN", required: true },
     { name: "currentDriverLicense", label: "Current driver's license", type: "file", accept: "document", required: true },
     { name: "passportPhotograph", label: "Passport photograph", type: "file", accept: "image", required: true }
   ],
